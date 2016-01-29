@@ -64,6 +64,7 @@
 
 #define abs(a) ((a<0) ? -a : a)
 
+
 void ZProbe::on_module_loaded()
 {
     // if the module is disabled -> do nothing
@@ -162,6 +163,7 @@ void ZProbe::setDecelerateOnTrigger(bool t) {
 bool ZProbe::wait_for_probe(int& steps)
 {
     unsigned int debounce = 0;
+    int _steps[3];
 
     while(true) {
         THEKERNEL->call_event(ON_IDLE);
@@ -177,12 +179,19 @@ bool ZProbe::wait_for_probe(int& steps)
 
         // if the touchprobe is active...
         if( this->pin.get() ) {
+
             //...increase debounce counter...
             if( debounce < debounce_count) {
+
                 // ...but only if the counter hasn't reached the max. value
                 debounce++;
+
             } else {
+
                 // ...otherwise stop the steppers, return its remaining steps
+                _steps[X_AXIS] = STEPPER[X_AXIS]->get_stepped();
+                _steps[Y_AXIS] = STEPPER[Y_AXIS]->get_stepped();
+                _steps[Z_AXIS] = STEPPER[Z_AXIS]->get_stepped();
 
                 // If using deceleration, this tells the acceleration tick method to call decelerate() rather than accelerate()
                 if(decelerate_on_trigger) {
@@ -190,20 +199,31 @@ bool ZProbe::wait_for_probe(int& steps)
                 }
 
                 // Command steppers to stop (only if not using decel on trigger)
-                if(STEPPER[Z_AXIS]->is_moving()){
-                    steps= STEPPER[Z_AXIS]->get_stepped();
-                    if(!decelerate_on_trigger) {
-                        STEPPER[Z_AXIS]->move(0, 0);
-                    }
-                }
                 if(is_delta) {
-                    for( int i = X_AXIS; i <= Y_AXIS; i++ ) {
+                    // Delta
+                    for( int i = X_AXIS; i <= Z_AXIS; i++ ) {
                         if ( STEPPER[i]->is_moving() ) {
                             if(!decelerate_on_trigger) {
                                 STEPPER[i]->move(0, 0);
                             }
                         }
                     }
+                } else {
+                    // Cartesian or other
+                    if(STEPPER[Z_AXIS]->is_moving()){
+                        if(!decelerate_on_trigger) {
+                            STEPPER[Z_AXIS]->move(0, 0);
+                        }
+                    }
+                }
+
+                // Set the steps
+                if(is_delta) {
+                    // Average, should reduce the standard deviation if the probe hits between axis motion interrupts
+                    steps = (_steps[X_AXIS] + _steps[Y_AXIS] + _steps[Z_AXIS]) / 3;
+                } else {
+                    // Only care about Z
+                    steps = _steps[Z_AXIS];
                 }
 
                 // Process the decel stuff
@@ -283,6 +303,7 @@ bool ZProbe::run_probe_feed(int& steps, float feedrate)
 bool ZProbe::run_probe(int& steps, bool fast)
 {
     float feedrate = (fast ? this->fast_feedrate : this->slow_feedrate);
+    //THEKERNEL->streams->printf("ZProbe::run_probe() - Feedrate is %1.3f\n", feedrate);
     return run_probe_feed(steps, feedrate);
 
 }
