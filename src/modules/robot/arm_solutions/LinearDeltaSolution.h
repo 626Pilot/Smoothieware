@@ -2,6 +2,7 @@
 #define LINEARDELTASOLUTION_H
 #include "libs/Module.h"
 #include "BaseSolution.h"
+#include "StreamOutputPool.h"
 
 // You have to include this to get memcpy
 #include <cstring>

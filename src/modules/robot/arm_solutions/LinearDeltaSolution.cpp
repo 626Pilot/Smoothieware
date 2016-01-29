@@ -233,7 +233,9 @@ bool LinearDeltaSolution::set_optional(const arm_options_t& options) {
         }
     }
     init();
+
     return true;
+
 }
 
 bool LinearDeltaSolution::get_optional(arm_options_t& options, bool force_all) {
@@ -269,4 +271,5 @@ bool LinearDeltaSolution::get_optional(arm_options_t& options, bool force_all) {
     }
 
     return true;
+
 };
