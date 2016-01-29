@@ -69,6 +69,22 @@
 */
 
 
+/*
+
+    Dimensionally accurate calibration idea
+    --------------------------------------------
+    Start with arm length at manufacturer's specified length.
+    Do G31 calibration, but anneal everything EXCEPT arm length.
+    Print calibration slab, 100x100 or 150x150mm should be good.
+
+    Slab is too small: Decrease arm length so it will push further.
+      Slab is too big: Increase arm length so it won't push as far.
+
+*/
+
+
+
+
 #include "ComprehensiveDeltaStrategy.h"
 #include "Kernel.h"
 #include "Config.h"
@@ -412,8 +428,6 @@ int __attribute__ ((noinline)) ComprehensiveDeltaStrategy::prefix_printf(const c
 
 
 
-
-
 // This serves in place of a constructor; it will be called whenever the config is reloaded
 // (which you can do over a serial console, by the way)
 bool ComprehensiveDeltaStrategy::handleConfig() {
@@ -450,6 +464,9 @@ bool ComprehensiveDeltaStrategy::handleConfig() {
 
     // TODO: Read this from config_override via M-code
     surface_shape = PSS_CIRCLE;
+
+    // Set default eval metric for simulated annealing
+    eval_metric_type = EVAL_METRIC_MEAN;
 
     // Initialize the best probe calibration stats (we'll use sigma==-1 to check whether initialized)
     best_probe_calibration->sigma = -1;
@@ -732,7 +749,7 @@ bool ComprehensiveDeltaStrategy::handle_depth_mapping_calibration(Gcode *gcode) 
         clear_calibration_types();
         int annealing_tries = 50;
         float max_temp = 0.35;
-        float binsearch_width = 0.1;
+        float binsearch_width = 0.05; // Was 0.1
         float overrun_divisor = 2;
         bool simulate_only = false;
         bool keep_settings = false;
@@ -782,17 +799,42 @@ bool ComprehensiveDeltaStrategy::handle_depth_mapping_calibration(Gcode *gcode) 
         } else caltype.virtual_shimming.active = false;
         
         // Tower lean (placeholder)
-        if(gcode->has_letter('S')) {
-        } /* else caltype.tower_lean.active = false; */
+        //if(gcode->has_letter('S')) {
+        //} /* else caltype.tower_lean.active = false; */
 
+/*
+if(gcode->has_letter('S')) {
+    __printf("DEBUG: Dumping kinematics, base_set and cur_set.\n");
+
+    __printf("Current reported kinematics:\n");
+    print_kinematics();
+
+    __printf("base_set:\n");
+    print_kinematics(base_set);
+
+    __printf("cur_set:\n");
+    print_kinematics(cur_set);
+
+    return true;
+
+}
+*/
 
         // --- End caltypes ---
 
+        // Eval metric
+        if(gcode->has_letter('X')) {
+            switch((int)gcode->get_value('X')) {
+                case 1: eval_metric_type = EVAL_METRIC_MEAN; break;
+                case 2: eval_metric_type = EVAL_METRIC_RMS; break;
+                default: __printf("X's arg has to be 1 or 2, so ignoring.\n");
+            }
+        }
 
         // Annealing tries
         // Generally, more iterations require lower temps
-        if(gcode->has_letter('T')) {
-            annealing_tries = gcode->get_value('T');
+        if(gcode->has_letter('E')) {
+            annealing_tries = gcode->get_value('E');
         }
         
         // Max temperature (tradeoff between "too cold to get there" and "so hot that it boils" - you want "just right")
@@ -961,27 +1003,29 @@ void __attribute__ ((noinline)) ComprehensiveDeltaStrategy::print_g31_help() {
 
     flush();
     _printf("G31 usage: (* = you can supply an annealing multiplier)\n");
-    _printf("Z: Probe and display depth map - no calibration\n");
-    _printf("A: Set up depth map for auto leveling (corrects Z only - run AFTER annealing)\n");
+    _printf(" Z: Probe and display depth map - no calibration\n");
+    _printf(" F: Force re-probe\n");
+    _printf(" A: Set up depth map for auto leveling (corrects Z only - run AFTER annealing)\n");
     _printf("\n");
     flush();
     _printf("Simulated annealing (corrects X, Y and Z - run G32 first):\n");
-    _printf("J: Update geometry after ALL vars are annealed each pass, rather than after each one is annealed\n");
-    _printf("K: Keep last settings\n");
-    _printf("L: Simulate only (don't probe)\n");
-    _printf("H: Endstops *\n");
+    _printf(" J: Update geometry after ALL vars are annealed each pass, rather than after each one is annealed\n");
+    _printf(" K: Keep last settings\n");
+    _printf(" L: Simulate only (don't probe)\n");
+    _printf(" H: Endstops *\n");
     flush();
-    _printf("O: Delta radius *\n");
-    _printf("P: Arm length *\n");
-    _printf("Q: Tower angle offsets *\n");
-    _printf("R: Surface plane virtual shimming *\n");
+    _printf(" O: Delta radius *\n");
+    _printf(" P: Arm length *\n");
+    _printf(" Q: Tower angle offsets *\n");
+    _printf(" R: Surface plane virtual shimming *\n");
     // TODO: Tower lean
     flush();
-    _printf("t: Annealing: Iterations (50)\n");		// Repetier Host silently eats lines starting with T >:(
-    _printf("U: Annealing: Max t_emp (0.35)\n");	// Repetier Host silently eats all lines containing "temp" >8(
-    _printf("V: Annealing: Binary search width (0.1)\n");
-    _printf("W: Annealing: Overrun divisor (2)\n");
-    _printf("Y: Zero all individual radius, angle, and arm length offsets\n");
+    _printf(" E: Annealing: Iterations (50)\n");
+    _printf(" U: Annealing: Max t_emp (0.35)\n");	// Repetier Host silently eats all lines containing "temp" >8(
+    _printf(" V: Annealing: Binary search width (0.1)\n");
+    _printf(" W: Annealing: Overrun divisor (2)\n");
+    _printf(" X: Annealing: Eval metric (1=mean, 2=RMS, default 1)\n");
+    _printf(" Y: Zero all individual radius, angle, and arm length offsets\n");
     flush();
 
 }
@@ -1165,6 +1209,12 @@ bool ComprehensiveDeltaStrategy::heuristic_calibration(int annealing_tries, floa
     push_prefix("HC");
     print_task_with_warning("Heuristic calibration");
 
+_printf("/!\\ At start of method, kinematics are:\n");
+print_kinematics();
+
+_printf("/!\\ And, cur_set is:\n");
+print_kinematics(cur_set);
+
     // Sanity check regular variables
     annealing_tries = clamp(annealing_tries, 10, 1000);
     max_temp = clamp(max_temp, 0, 2);
@@ -1211,12 +1261,14 @@ bool ComprehensiveDeltaStrategy::heuristic_calibration(int annealing_tries, floa
 
     _printf("Set geom during/after (J): %s\n", set_geom_after_each_caltype ? "During" : "After");
     _printf("   Keep last settings (K): %s\n", keep_settings ? _STR_TRUE_ : _STR_FALSE_);
-    _printf("      Annealing tries (T): %d\n", annealing_tries);
+    _printf("      Annealing tries (E): %d\n", annealing_tries);
     _printf("             Max temp (U): %1.3f\n", max_temp);
     _printf("  Binary search width (V): %1.3f\n", binsearch_width);
     _printf("      Overrun divisor (W): %1.3f\n", overrun_divisor);
+    _printf("          Eval metric (X): %s\n", (eval_metric_type == EVAL_METRIC_MEAN) ? "Mean" : "RMS");
     _printf("     Zero all offsets (Y): %s\n", zero_all_offsets ? _STR_TRUE_ : _STR_FALSE_);
     newline();
+
 
     // Make sure the depth maps are blank
     //zero_depth_maps();
@@ -1255,7 +1307,7 @@ bool ComprehensiveDeltaStrategy::heuristic_calibration(int annealing_tries, floa
         _printf("Keeping existing kinematics.\n");
         get_kinematics(cur_set);
     } else {
-        _printf("Restoring baseline kinematics.\n");
+        _printf("/!\\ Restoring baseline kinematics. /!\\\n");
         base_set->copy_to(cur_set);
         set_kinematics(cur_set);
     }
@@ -1263,15 +1315,19 @@ bool ComprehensiveDeltaStrategy::heuristic_calibration(int annealing_tries, floa
 
     // Tests (min, max, value|TEST_INIT_MIDRANGE))
     // Main tests:
-    TestConfig test_endstop[3] { {-5, 0}, {-5, 0}, {-5, 0} };
-    TestConfig test_delta_radius(cur_set->delta_radius - 5, cur_set->delta_radius + 5);
-    TestConfig test_arm_length(cur_set->arm_length - 5, cur_set->arm_length + 5);
-    TestConfig test_tower_angle[3] { {-3, 3}, {-3, 3}, {-3, 3} };
-    TestConfig test_virtual_shimming[3] { {-3, 3}, {-3, 3}, {-3, 3} };
+    float lowOffset = 1.5;
+    float medOffset = 2.5;
+    float highOffset = 3.5;
+
+    TestConfig test_endstop[3] { {-lowOffset, 0}, {-lowOffset, 0}, {-lowOffset, 0} };
+    TestConfig test_delta_radius(cur_set->delta_radius - lowOffset, cur_set->delta_radius + lowOffset);
+    TestConfig test_arm_length(cur_set->arm_length - highOffset, cur_set->arm_length + highOffset);
+    TestConfig test_tower_angle[3] { {-medOffset, medOffset}, {-medOffset, medOffset}, {-medOffset, medOffset} };
+    TestConfig test_virtual_shimming[3] { {-highOffset, highOffset}, {-highOffset, highOffset}, {-highOffset, highOffset} };
     // TODO: Tower lean
 
     // Offsets that tie into the main tests:
-    TestConfig test_delta_radius_offset[3] { {-3, 3}, {-3, 3}, {-3, 3} };
+    TestConfig test_delta_radius_offset[3] { {-lowOffset, lowOffset}, {-lowOffset, lowOffset}, {-lowOffset, lowOffset} };
 //    TestConfig test_arm_length_offset[3] { {-3, 3}, {-3, 3}, {-3, 3} };
 
     // Set up for outer loop
@@ -1438,6 +1494,16 @@ bool ComprehensiveDeltaStrategy::heuristic_calibration(int annealing_tries, floa
 
         for(annealing_try=0; annealing_try<annealing_tries; annealing_try++) {
 
+            // Let the kernel handle idle tasks, and let us check for e-stop
+            THEKERNEL->call_event(ON_IDLE);
+
+            // Check if on_halt (eg kill)
+            if(THEKERNEL->is_halted()) {
+                _printf("Aborting calibration because printer has been halted.\n");
+                pop_prefix();
+                return false;
+            }
+
             // Shuffle caltype list
             // Disabled - this really doesn't help, at all. In fact, I get slightly worse results with it!!!
             // Would be interesting to see whether a weak AI could figure out the optimal order on a per-machine basis.
@@ -1467,6 +1533,13 @@ bool ComprehensiveDeltaStrategy::heuristic_calibration(int annealing_tries, floa
             
             try_mod_5 = annealing_try % 5;
             float local_temp;
+
+            // Note: I happen to be doing this in the order (delta radius first, arm length second) recommended here:
+            //       http://minow.blogspot.com/
+            //
+            // I don't know whether everything else is in optimal order. It would be interesting to have the system
+            // try every order, and see which results in the lowest (best) energy. Wouldn't take that long to do it,
+            // either!
 
             for(int cal_type=0; cal_type<CDS_N_CALTYPES; cal_type++) {
 
@@ -1635,6 +1708,14 @@ bool ComprehensiveDeltaStrategy::heuristic_calibration(int annealing_tries, floa
                 // TODO: Tower lean
             }
 
+            // Debug code, good for proving that the changes are being made and synced every pass
+            /*
+            _printf("AL: %1.3f; ",cur_set->arm_length);
+            _printf("Delta Radius: %1.3f; DR Offsets: {%1.3f, %1.3f, %1.3f}; ", cur_set->delta_radius, cur_set->tower_radius[X], cur_set->tower_radius[Y], cur_set->tower_radius[Z]);
+            _printf("Endstops: {%1.3f, %1.3f, %1.3f}; ", cur_set->trim[X], cur_set->trim[Y], cur_set->trim[Z]);
+            _printf("Tower Angles: {%1.3f, %1.3f, %1.3f}; ", cur_set->tower_angle[X], cur_set->tower_angle[Y], cur_set->tower_angle[Z]);
+            _printf("Virtual Shimming: {%1.3f, %1.3f, %1.3f}\n", cur_set->virtual_shimming[X], cur_set->virtual_shimming[Y], cur_set->virtual_shimming[Z]);
+            */
 
             // Tell the robot to update its position according to the new kinematics
             // Note: This is probably a waste of time. It may have served some better purpose before
@@ -2916,7 +2997,7 @@ bool ComprehensiveDeltaStrategy::depth_map_print_surface(float **cartesian, _cds
 }
 
 
-// Perform a GeneB-style calibration on the endstops and delta radius.
+// Perform a GeneB-style calibration on the endstops and delta radius, given a known arm length.
 // Unlike GeneB's method, this converges both at the same time and should produce a slightly better calibration.
 // It's a good idea to run this before the heuristic calibration, so it has a good starting point.
 bool ComprehensiveDeltaStrategy::iterative_calibration(bool keep_settings) {
@@ -2924,9 +3005,13 @@ bool ComprehensiveDeltaStrategy::iterative_calibration(bool keep_settings) {
     push_prefix("IC");
     print_task_with_warning("Iterative calibration");
 
+//float al;
+//get_arm_length(al);
+//_printf("At method entry, arm length is %1.3f.\n", al);
+
     zero_depth_maps();
     set_adjust_function(false);		// Surface plane can confound this method
-    
+
     if(keep_settings) {
         _printf("Keeping kinematics.\n");
     } else {
@@ -2938,6 +3023,21 @@ bool ComprehensiveDeltaStrategy::iterative_calibration(bool keep_settings) {
         set_virtual_shimming(0, 0, 0);
         // TODO: Tower lean
     }
+
+    // Deviation and trimscale
+    float last_deviation = 999;
+    float trimscale = 1.3F;
+        
+    // Do we need to reset the variables?
+    //if(caltype.endstop.needs_reset) {
+    //    last_deviation = 999;
+    //    trimscale = 1.3F;
+    //    caltype.endstop.needs_reset = false;
+    //}
+
+
+//get_arm_length(al);
+//_printf("* After keep/reset kinematics, arm length is %1.3f.\n", al);
 
     print_kinematics();
 
@@ -2981,6 +3081,13 @@ bool ComprehensiveDeltaStrategy::iterative_calibration(bool keep_settings) {
     // Main loop
     uint8_t tries = 20;
     for(int outer_i = 0; outer_i < tries; outer_i++) {
+
+        // Check if on_halt (eg kill)
+        if(THEKERNEL->is_halted()) {
+            _printf("Aborting calibration because printer has been halted.\n");
+            pop_prefix();
+            return false;
+        }
 
         // Banner preceded by line break for easy visual parsing
         newline();
@@ -3028,18 +3135,9 @@ bool ComprehensiveDeltaStrategy::iterative_calibration(bool keep_settings) {
             // ****************
             
             push_prefix("ES");
-            
-            // Deviation and trimscale
-            static float last_deviation;
-            static float trimscale;
-                
-            // Do we need to reset the variables?
-            if(caltype.endstop.needs_reset) {
-                last_deviation = 999;
-                trimscale = 1.3F;
-                caltype.endstop.needs_reset = false;
-            }
 
+            // last_deviation and trimscale were formerly set here with static floats
+            
             _printf("Endstops: Difference => %1.3f (want %1.3f)", tower_deviation, target);
 
             // Deviation within tolerance?
@@ -3093,10 +3191,14 @@ bool ComprehensiveDeltaStrategy::iterative_calibration(bool keep_settings) {
                 trim[X] -= mm.second;
                 trim[Y] -= mm.second;
                 trim[Z] -= mm.second;
-                _printf("Setting endstops to {%1.3f, %1.3f, %1.3f}.\n", trim[X], trim[Y], trim[Z]);
                     
                 set_trim(trim[X], trim[Y], trim[Z]);
-                    
+                _printf("Endstops: {%1.3f, %1.3f, %1.3f}.\n", trim[X], trim[Y], trim[Z]);
+
+//float trimTmp[3];
+//get_trim(trimTmp[X], trimTmp[Y], trimTmp[Z]);
+//_printf("After setting endstops, robot thinks their values are {%1.3f, %1.3f, %1.3f\n", trimTmp[X], trimTmp[Y], trimTmp[Z]);
+
             }
             
             pop_prefix();
@@ -3132,7 +3234,7 @@ bool ComprehensiveDeltaStrategy::iterative_calibration(bool keep_settings) {
             if(fabs(deviation) <= target) {
 
                 // Yep
-                __printf("within tolerance.\n");
+                __printf("within tolerance at %1.3f.\n", delta_radius);
                 caltype.delta_radius.in_tolerance = true;
 
             } else {
@@ -3145,6 +3247,10 @@ bool ComprehensiveDeltaStrategy::iterative_calibration(bool keep_settings) {
                 delta_radius += (deviation * dr_factor);
                 __printf("%1.3f\n", delta_radius);
                 set_delta_radius(delta_radius);
+
+//float drTemp;
+//get_delta_radius(drTemp);
+//_printf("After setting DR, robot reports its value as %1.3f.\n", drTemp);
 
             }
 
@@ -3260,11 +3366,13 @@ bool ComprehensiveDeltaStrategy::find_bed_center_height(bool reset_all) {
     _printf("Probe-from height = %1.3f\n", probe_from_height);
 
     // Move to probe_from_height (relative move!)
+//_printf("!! Before 1st coordinated move\n");
     zprobe->coordinated_move(NAN, NAN, -probe_from_height, zprobe->getFastFeedrate(), true);
 
     // Move to probing offset
     // We do these as two seperate steps because the top of a delta's build envelope is domed,
     // and we want to avoid the possibility of asking the effector to move somewhere it can't
+//_printf("!! Before 2nd coordinated move\n");
     zprobe->coordinated_move(probe_offset_x, probe_offset_y, NAN, zprobe->getFastFeedrate(), false);
 
 //    // Slow down
@@ -3278,6 +3386,7 @@ bool ComprehensiveDeltaStrategy::find_bed_center_height(bool reset_all) {
 //    }
 
     // Now, (slowly) probe the depth
+//_printf("!! Before run_probe()\n");
     if(!run_probe(steps, false, false)  /*!zprobe->run_probe(steps, false)*/) {
 //        restore_acceleration();
         pop_prefix();
@@ -3480,12 +3589,24 @@ bool ComprehensiveDeltaStrategy::set_arm_length(float arm_length, bool update) {
     geom_dirty = true;
 
     options['L'] = arm_length;
+
     if(THEKERNEL->robot->arm_solution->set_optional(options)) {
         if(update) {
             post_adjust_kinematics();
         }
+
+
+// These unindented lines are for debugging, and can be removed later.
+//__printf("!AL! Told kernel that arm length is %1.3f.\n", options['L']);
+
+
         return true;
     } else {
+
+
+//__printf("[AL] set_arm_length(): Kernel returned false.\n");
+
+
         return false;
     }
 
@@ -3495,6 +3616,9 @@ bool ComprehensiveDeltaStrategy::get_arm_length(float &arm_length) {
 
     if(THEKERNEL->robot->arm_solution->get_optional(options)) {
         arm_length = options['L'];
+
+//__printf("~AL~ Kernel reports arm length=%1.3f.\n", arm_length);
+
         return true;
     } else {
         return false;
@@ -3878,7 +4002,7 @@ void ComprehensiveDeltaStrategy::print_depths_statistics(cds_depths_t *depths) {
 
     float *rel_depths = (float *)AHB0.alloc(DM_GRID_ELEMENTS * sizeof(float));
     float best = 999, worst = 0;
-    float mu, sigma, min, max;
+    float mu, RMS, sigma, min, max;
     int i;
 
     // Calc statistics
@@ -3901,9 +4025,9 @@ void ComprehensiveDeltaStrategy::print_depths_statistics(cds_depths_t *depths) {
     AHB0.dealloc(rel_depths);
 
     // The difference between "best/worst" and "min/max" is that best and worst are indifferent to sign.
-    calc_statistics(rel_depths, DM_GRID_ELEMENTS, mu, sigma, min, max);
+    calc_statistics(rel_depths, DM_GRID_ELEMENTS, mu, RMS, sigma, min, max);
     float energy = calc_energy(depths);
-    __printf("[PD] Best=%1.3f, worst=%1.3f, min=%1.3f, max=%1.3f, mu=%1.3f, sigma=%1.3f, energy=%1.3f\n", best, worst, min, max, mu, sigma, energy);
+    __printf("[PD] Best=%1.3f, worst=%1.3f, min=%1.3f, max=%1.3f, mu=%1.3f, RMS=%1.3f, sigma=%1.3f, energy=%1.3f\n", best, worst, min, max, mu, RMS, sigma, energy);
     newline();
 
 }
@@ -4096,23 +4220,26 @@ void ComprehensiveDeltaStrategy::display_calibration_types(bool active, bool ina
 }
 
 
-// Calculate mean (mu), standard deviation (sigma), min, and max values for an array of arbitrary length
-void ComprehensiveDeltaStrategy::calc_statistics(float values[], int n_values, float &mu, float &sigma, float &min, float &max) {
+// Calculate mean (mu), standard deviation (sigma), root mean squared, min, and max values for an array of arbitrary length
+void ComprehensiveDeltaStrategy::calc_statistics(float values[], int n_values, float &mu, float &RMS, float &sigma, float &min, float &max) {
 
     // Init
     int stats;
     float dev;
+    float sumSquared = 0;
     min =  999;
     max = -999;
 
-    // Mu, min, and max
+    // Mu, RMS, min, and max
     mu = 0;
     for(stats = 0; stats < n_values; stats++) {
         mu += values[stats];
+        sumSquared += values[stats] * values[stats];
         if(values[stats] > max) { max = values[stats]; }
         if(values[stats] < min) { min = values[stats]; }
     }
     mu /= n_values;
+    RMS = sqrt(sumSquared / n_values);
 
     // Sigma
     dev = 0;
@@ -4120,7 +4247,7 @@ void ComprehensiveDeltaStrategy::calc_statistics(float values[], int n_values, f
         dev += powf((float)values[stats] - mu, 2);
     }
     sigma = sqrtf(dev/n_values);
-
+    
 }
 
 
@@ -4152,17 +4279,45 @@ float ComprehensiveDeltaStrategy::calc_energy(cds_depths_t *points) {
 
 float ComprehensiveDeltaStrategy::calc_energy(float **cartesian) {
 
-    float mu = 0;
+    float mu = 0, sumSquared = 0, val;
     int i = 0;
 
+
     for(int stats = 0; stats < DM_GRID_ELEMENTS; stats++) {
+
         if(active_point[stats] == TP_ACTIVE) {
-            mu += fabs(cartesian[stats][Z]);
+
+            val = fabs(cartesian[stats][Z]);
+
+            switch(eval_metric_type) {
+
+                case EVAL_METRIC_MEAN:
+                    // Use the mean
+                    mu += val;
+
+                case EVAL_METRIC_RMS:
+                    // Use the RMS
+                    sumSquared += val * val;
+
+            }
+
             i++;
+
         }
     }
 
-    return mu / i;
+    float ret=0;
+    switch(eval_metric_type) {
+
+        case EVAL_METRIC_MEAN:
+            ret = mu / i;
+
+        case EVAL_METRIC_RMS:
+            ret = sqrt(sumSquared / i);
+
+    }
+
+    return ret;
 
 }
 

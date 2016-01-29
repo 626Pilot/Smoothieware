@@ -54,6 +54,12 @@ enum _cds_caltype_t {
     CT_TOWER_LEAN
 };
 
+// Evaluation metrics
+enum _cds_eval_metrics_t {
+    EVAL_METRIC_MEAN,
+    EVAL_METRIC_RMS
+};
+
 // For bit-twiddling, taken from https://github.com/626Pilot/RaspberryPi-NeoPixel-WS2812/blob/master/ws2812-RPi.c
 #define SETBIT(word, bit) word |= 1<<bit
 #define CLRBIT(word, bit) word &= ~(1<<bit)
@@ -358,19 +364,20 @@ class ComprehensiveDeltaStrategy : public LevelingStrategy {
 
     // General vars
     float bed_height;
-    float probe_from_height;		// Will be set to NaN during init; call find_bed_center_height() to set
-    int probe_smoothing;		// Probe this many times and return the average of the results (default 1)
-    int probe_priming;			// Some probes have to be test-tapped a bunch of times before they "settle"
+    float probe_from_height;                // Will be set to NaN during init; call find_bed_center_height() to set
+    int probe_smoothing;                    // Probe this many times and return the average of the results (default 1)
+    int probe_priming;                      // Some probes have to be test-tapped a bunch of times before they "settle"
     float probe_offset_x;
     float probe_offset_y;
     float probe_offset_z;
-    bool probe_ignore_bed_temp;		// Whether to wait for bed temp to stabilize (set true if you have no HB)
+    bool probe_ignore_bed_temp;             // Whether to wait for bed temp to stabilize (set true if you have no HB)
     float probe_radius;
-    float mm_probe_height_to_trigger;	// At bed center, distance from probe_height to where probe triggers
+    float mm_probe_height_to_trigger;       // At bed center, distance from probe_height to where probe triggers
     float saved_acceleration;
     float probe_acceleration;
-    bool geom_dirty;			// Means we need to redo the endstops/delta radius
-    char LED_state = 0b00000000;	// For saving blinky light state
+    bool geom_dirty;                        // Means we need to redo the endstops/delta radius
+    char LED_state = 0b00000000;            // For saving blinky light state
+    _cds_eval_metrics_t eval_metric_type;   // Eval metric for simulated annealing (mean or RMS)
     
     // Method prefixes - whenever you _printf, it will print "[prefix] words"
     // (the prefix has to be a two-char ASCIIZ string)
@@ -491,7 +498,7 @@ class ComprehensiveDeltaStrategy : public LevelingStrategy {
     void restore_acceleration();
 
     // Math
-    void calc_statistics(float values[], int n_values, float &mu, float &sigma, float &min, float &max);
+    void calc_statistics(float values[], int n_values, float &mu, float &RMS, float &sigma, float &min, float &max);
     void rotate2D(float (&point)[2], float reference[2], float angle);
     float distance2D(float first[2], float second[2]);
     float distance3D(float first[3], float second[3]);
