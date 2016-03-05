@@ -34,7 +34,7 @@
     The recommended way to use this on a Delta printer is:
     G29 (calibrate your probe)
     G32 (iterative calibration - gets endstops/delta radius correct - K to keep, but don't use that if you want to run G31 afterwards)
-    G31 O P Q R S (simulated annealing - corrects for errors in X, Y, and Z - it may help to run this multiple times)
+    G31 H O P Q R (simulated annealing - corrects for errors in X, Y, and Z - it may help to run this multiple times)
     G31 A (depth mapping - corrects errors in Z, but not X or Y - benefits from simulated annealing, though)
 
     The recommended way to use this on a Cartesian/CoreXY/SCARA etc. printer (of which the author has tested none, FYI):
@@ -47,24 +47,19 @@
         * This is done, but none of the 2D arrays can be freed due to a possible bug in the memory pool manager.
         * See comments in AHB0_dealloc2Df(). It might be my fault, but I've put enough hours in on this already.
     * Audit arrays created during probe calibration & simulated annealing to see if any are candidates for AHB0 migration.
-    * Increase probing grid size to 7x7, rather than 5x5. (Needs above AHB0 migration to be done first, crashes otherwise)
-        * Done
     * Elaborate probing grid to be able to support non-square grids (for the sake of people with rectangular build areas).
     * Add "leaning tower" support
       * Add {X, Y, Z(?)} coords for top and bottom of tower & use in FK and IK in robot/arm_solutions/LinearDeltaSolution.cpp/.h
       * Add letter codes to LinearDeltaSolution.cpp for saving/loading the values from config-override
       * Add simulated annealing section for tower lean
-    * Make G31 B the specific command for heuristic calibration, and have it select O P Q R S (all annealing types) by default.
+    * Make G31 B the specific command for heuristic calibration, and have it select H O P Q R (all annealing types) by default.
       * Make the annealer do a test probe rather than printing out the simulated depths.
       * If G31 B is run without args, use the last probed depths.
     * Add support for modifying/using return_feedrate (see ZProbe.cpp - this was added somewhere around Summer 2015)
       * Looks like this needs to be added to the config files, too!
     * Check ZProbe.cpp to make sure the subcode dispatch (see around line 387) messes anything up
-    * We are using both three-dimensional (Cartesian) and one-dimensional (depths type, .abs and .rel) arrays. Cartesians are
-      necessary for IK/FK, but maybe we can make a type with X, Y, absolute Z, and relative Z, and be done with the multiple types.
-      (Except for the depth map, which has to be kept in RAM all the time.)
-      Such arrays can be "fat" while in use because they will live on the stack, and not take up any space when the calibration
-      routines are not running.
+    * We are using both three-dimensional (Cartesian) and one-dimensional (depths type, .abs and .rel) arrays. We could recoup some
+      memory by not storing the XY positions, and calculating them every time instead. Shouldn't materially impact performance.
 
 */
 
@@ -123,6 +118,7 @@
 #define probe_offset_z_checksum       	CHECKSUM("probe_offset_z")
 
 #define probe_ignore_bed_temp_checksum  CHECKSUM("probe_ignore_bed_temp")
+#define probe_bed_shape_checksum        CHECKSUM("probe_bed_shape")
 
 // Array subscripts: Cartesian axes
 #define X 0
@@ -136,7 +132,8 @@
 
 
 // This prints to ALL streams. If you have second_usb_serial_enable turned on, you better connect a terminal to it!
-// Otherwise, eventually the serial buffers will get full and the printer may crash the effector into the build surface.
+// Otherwise, eventually the serial buffers will get full and the printer may crash the effector into the build surface
+// or thrash badly against the endstops while homing.
 
 // Print "[PF] words", where PF is two characters sent to push_prefix()
 #define _printf prefix_printf
@@ -462,8 +459,9 @@ bool ComprehensiveDeltaStrategy::handleConfig() {
     // Turn off all calibration types
     clear_calibration_types();
 
-    // TODO: Read this from config_override via M-code
-    surface_shape = PSS_CIRCLE;
+    // Set the surface shape - deltas are usuall (but not always) round.
+    // Support for rectangular build surfaces has not been implemented.
+    surface_shape = THEKERNEL->config->value(comprehensive_delta_strategy_checksum, probe_bed_shape_checksum)->by_default(PSS_CIRCLE)->as_number();
 
     // Set default eval metric for simulated annealing
     eval_metric_type = EVAL_METRIC_MEAN;

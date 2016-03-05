@@ -98,6 +98,8 @@ enum _cds_dmps_result {
 
 
 // Print surface shape (so we can cull points outside the radius, if it's a circle)
+// TODO: Add PSS_RECTANGLE, and retrofit existing code to support appropriate point-culling.
+// In config, set probe_bed_shape to 0 (circle) or 1 (square).
 enum _cds_print_surface_shape {
     PSS_CIRCLE,
     PSS_SQUARE
