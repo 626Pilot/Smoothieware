@@ -17,7 +17,12 @@ The full configs found in the ConfigSamples director include:
 * AzteegX5Mini - This directory contains a sample config file for using
   the Azteeg X5 Mini. NOTE there is a version2 specific example.
 
-* Snippets - these are snippets of config that can be included in the main config or copy pasted.
+* Snippets - these are snippets of config that can be included in the main config
+  or copy pasted.
+
+* ConfigComparator.sh - Use this to compare your config with another version
+  (e.g. upstream) to see which keywords in each file are missing from the other.
+  Good for finding kewords that are new, or which have been retired.
 
 There are also example config fragments to be be found in the rest of the docs.
 
