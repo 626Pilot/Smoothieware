@@ -29,7 +29,7 @@ arm_length                                   269.00           # length of the de
 # - Jog the probe up a little, remove the dot, jog it down until it triggers, and record the exact values in offset_x/y/z
 # PLEASE NOTE: probe_offset_x and probe_offset_y MUST be 0 if you want to use depth (Z) correction!
 # ---------------------------------------------------------------------
-leveling-strategy.comprehensive-delta.enable true
+leveling-strategy.comprehensive-delta.enable              true
 comprehensive-delta.probe_smoothing                       1                # if your probe has repeatability issues, this will probe multiple times & take the average (default 1)
 comprehensive-delta.probe_priming                         5                # if your probe keeps "creeping down", this will run it the specified number of times to get it to settle
 comprehensive-delta.probe_acceleration                    75               # acceleration will be temporarily set to this during probing; original is restored later; 100 is a good value
@@ -96,6 +96,14 @@ gamma_max_endstop                            1.28^            #
 gamma_homing_direction                       home_to_max      #
 gamma_min                                    0                #
 # gamma_max moved to top of file, since it's one of the most frequenly adjusted settings
+
+# optional enable limit switches, actions will stop if any enabled limit switch is triggered
+#alpha_limit_enable                          false            # set to true to enable X min and max limit switches
+#beta_limit_enable                           false            # set to true to enable Y min and max limit switches
+#gamma_limit_enable                          false            # set to true to enable Z min and max limit switches
+
+#move_to_origin_after_home                    true             # move XY to 0,0 after homing
+
 
 
 # Homing
@@ -282,7 +290,6 @@ kill_button_pin                              2.12             # kill button pin.
 #panel.back_button_pin                       1.22!^            # back button recommended to use this on EXP1
 
 
-
 # Azteeg specific settings - do not change!
 # ---------------------------------------------------------------------
 currentcontrol_module_enable                 true             #
@@ -319,3 +326,38 @@ laser_module_enable                          false            # Whether to activ
 # ---------------------------------------------------------------------
 dfu_enable                                   true             # for linux developers, set to true to enable DFU
 msd_disable                                  false            # speeds up booting, but you can't mount the SD card over USB
+#leds_disable                                true             # disable using leds after config loaded
+#watchdog_timeout                            10               # watchdog timeout in seconds, default is 10, set to 0 to disable the watchdog
+
+panel.buzz_pin                               0.25              # pin for buzzer on EXP2
+panel.red_led_pin                            2.8               # pin for red led on viki2 on EXP1
+panel.blue_led_pin                           4.29              # pin for blue led on viki2 on EXP1
+panel.external_sd                            true              # set to true if there is an extrernal sdcard on the panel
+panel.external_sd.spi_channel                0                 # set spi channel the sdcard is on
+panel.external_sd.spi_cs_pin                 1.23              # set spi chip select for the sdcard
+panel.external_sd.sdcd_pin                   1.31!^            # sd detect signal (set to nc if no sdcard detect)
+panel.menu_offset                            1                 # some panels will need 1 here
+
+# Example mini viki2 config
+#panel.lcd                                    mini_viki2        # set type of panel
+#panel.spi_channel                            0                 # set spi channel to use P0_18,P0_15 MOSI,SCLK
+#panel.spi_cs_pin                             0.16              # set spi chip select
+#panel.encoder_a_pin                          3.25!^            # encoder pin
+#panel.encoder_b_pin                          3.26!^            # encoder pin
+#panel.click_button_pin                       2.11!^            # click button
+#panel.a0_pin                                 2.6               # st7565 needs an a0
+##panel.contrast                               18                # override contrast setting (default is 18)
+##panel.encoder_resolution                     2                 # override number of clicks to move 1 item (default is 2)
+#panel.menu_offset                            1                 # here controls how sensitive the menu is. some panels will need 1
+
+panel.alpha_jog_feedrate                     6000              # x jogging feedrate in mm/min
+panel.beta_jog_feedrate                      6000              # y jogging feedrate in mm/min
+panel.gamma_jog_feedrate                     200               # z jogging feedrate in mm/min
+
+panel.hotend_temperature                     185               # temp to set hotend when preheat is selected
+panel.bed_temperature                        60                # temp to set bed when preheat is selected
+
+# Azteeg specific settings do not change
+currentcontrol_module_enable                 true            #
+digipot_max_current                          2.4             # max current
+digipot_factor                               106.0           # factor for converting current to digipot value

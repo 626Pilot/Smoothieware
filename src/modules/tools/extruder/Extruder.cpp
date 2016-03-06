@@ -82,7 +82,6 @@ Extruder::Extruder( uint16_t config_identifier, bool single )
     this->absolute_mode = true;
     this->milestone_absolute_mode = true;
     this->enabled = false;
-    this->paused = false;
     this->single_config = single;
     this->identifier = config_identifier;
     this->retracted = false;
@@ -125,8 +124,6 @@ void Extruder::on_module_loaded()
     this->register_for_event(ON_BLOCK_END);
     this->register_for_event(ON_GCODE_RECEIVED);
     this->register_for_event(ON_GCODE_EXECUTE);
-    this->register_for_event(ON_PLAY);
-    this->register_for_event(ON_PAUSE);
     this->register_for_event(ON_HALT);
     this->register_for_event(ON_SPEED_CHANGE);
     this->register_for_event(ON_GET_PUBLIC_DATA);
@@ -265,7 +262,6 @@ void Extruder::on_set_public_data(void *argument)
     if(!pdr->starts_with(extruder_checksum)) return;
 
     // handle extrude rates request from robot
-    // TODO if not in volumetric mode then limit speed based on max_speed
     if(pdr->second_element_is(target_checksum)) {
         // disabled extruders do not reply NOTE only one enabled extruder supported
         if(!this->enabled) return;
@@ -287,24 +283,11 @@ void Extruder::on_set_public_data(void *argument)
         this->saved_absolute_mode = this->absolute_mode;
         pdr->set_taken();
     } else if(pdr->second_element_is(restore_state_checksum)) {
-        this->current_position = this->saved_current_position;
-        this->absolute_mode = this->saved_absolute_mode;
+        // NOTE this only gets called when the queue is empty so the milestones will be the same
+        this->milestone_last_position= this->current_position = this->saved_current_position;
+        this->milestone_absolute_mode= this->absolute_mode = this->saved_absolute_mode;
         pdr->set_taken();
     }
-}
-
-// When the play/pause button is set to pause, or a module calls the ON_PAUSE event
-void Extruder::on_pause(void *argument)
-{
-    this->paused = true;
-    this->stepper_motor->pause();
-}
-
-// When the play/pause button is set to play, or a module calls the ON_PLAY event
-void Extruder::on_play(void *argument)
-{
-    this->paused = false;
-    this->stepper_motor->unpause();
 }
 
 void Extruder::on_gcode_received(void *argument)
@@ -313,7 +296,7 @@ void Extruder::on_gcode_received(void *argument)
 
     // M codes most execute immediately, most only execute if enabled
     if (gcode->has_m) {
-        if (gcode->m == 114 && this->enabled) {
+        if (gcode->m == 114 && gcode->subcode == 0 && this->enabled) {
             char buf[16];
             int n = snprintf(buf, sizeof(buf), " E:%1.3f ", this->current_position);
             gcode->txt_after_ok.append(buf, n);
@@ -426,7 +409,8 @@ void Extruder::on_gcode_received(void *argument)
             THEKERNEL->conveyor->append_gcode(gcode);
             THEKERNEL->conveyor->queue_head_block();
 
-        } else if( this->enabled && (gcode->g == 10 || gcode->g == 11) ) { // firmware retract command
+        } else if( this->enabled && (gcode->g == 10 || gcode->g == 11) && !gcode->has_letter('L') ) {
+            // firmware retract command (Ignore if has L parameter that is not for us)
             // check we are in the correct state of retract or unretract
             if(gcode->g == 10 && !retracted) {
                 this->retracted = true;
@@ -445,10 +429,10 @@ void Extruder::on_gcode_received(void *argument)
                 int n = snprintf(buf, sizeof(buf), "G0 Z%1.4f F%1.4f", -retract_zlift_length, retract_zlift_feedrate);
                 string cmd(buf, n);
                 Gcode gc(cmd, &(StreamOutput::NullStream));
-                bool oldmode = THEKERNEL->robot->absolute_mode;
+                THEKERNEL->robot->push_state(); // save state includes feed rates etc
                 THEKERNEL->robot->absolute_mode = false; // needs to be relative mode
                 THEKERNEL->robot->on_gcode_received(&gc); // send to robot directly
-                THEKERNEL->robot->absolute_mode = oldmode; // restore mode
+                THEKERNEL->robot->pop_state(); // restore state includes feed rates etc
             }
 
             // This is a solo move, we add an empty block to the queue to prevent subsequent gcodes being executed at the same time
@@ -460,10 +444,10 @@ void Extruder::on_gcode_received(void *argument)
                 int n = snprintf(buf, sizeof(buf), "G0 Z%1.4f F%1.4f", retract_zlift_length, retract_zlift_feedrate);
                 string cmd(buf, n);
                 Gcode gc(cmd, &(StreamOutput::NullStream));
-                bool oldmode = THEKERNEL->robot->absolute_mode;
+                THEKERNEL->robot->push_state(); // save state includes feed rates etc
                 THEKERNEL->robot->absolute_mode = false; // needs to be relative mode
                 THEKERNEL->robot->on_gcode_received(&gc); // send to robot directly
-                THEKERNEL->robot->absolute_mode = oldmode; // restore mode
+                THEKERNEL->robot->pop_state(); // restore state includes feed rates etc
             }
 
         } else if( this->enabled && this->retracted && (gcode->g == 0 || gcode->g == 1) && gcode->has_letter('Z')) {
@@ -561,7 +545,7 @@ void Extruder::on_gcode_execute(void *argument)
             this->target_position += this->travel_distance;
             this->en_pin.set(0);
 
-        } else if (gcode->g == 0 || gcode->g == 1) {
+        } else if (gcode->g <= 3) {
             // Extrusion length from 'G' Gcode
             if( gcode->has_letter('E' )) {
                 // Get relative extrusion distance depending on mode ( in absolute mode we must subtract target_position )
@@ -618,7 +602,7 @@ void Extruder::on_block_begin(void *argument)
     this->current_position += this->travel_distance ;
 
     // round down, we take care of the fractional part next time
-    int steps_to_step = abs(floorf(this->steps_per_millimeter * (this->travel_distance + this->unstepped_distance) ));
+    int steps_to_step = abs((int)floorf(this->steps_per_millimeter * (this->travel_distance + this->unstepped_distance) ));
 
     // accumulate the fractional part
     if ( this->travel_distance > 0 ) {
@@ -668,7 +652,7 @@ uint32_t Extruder::rate_increase() const
 void Extruder::acceleration_tick(void)
 {
     // Avoid trying to work when we really shouldn't ( between blocks or re-entry )
-    if(!this->enabled || this->mode != SOLO || this->current_block == NULL || !this->stepper_motor->is_moving() || this->paused ) {
+    if(!this->enabled || this->mode != SOLO || this->current_block == NULL || !this->stepper_motor->is_moving() ) {
         return;
     }
 
@@ -688,7 +672,7 @@ void Extruder::acceleration_tick(void)
 void Extruder::on_speed_change( void *argument )
 {
     // Avoid trying to work when we really shouldn't ( between blocks or re-entry )
-    if(!this->enabled || this->current_block == NULL ||  this->paused || this->mode != FOLLOW || !this->stepper_motor->is_moving()) {
+    if(!this->enabled || this->current_block == NULL || this->mode != FOLLOW || !this->stepper_motor->is_moving()) {
         return;
     }
 

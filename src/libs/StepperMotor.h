@@ -27,15 +27,14 @@ class StepperMotor {
 
         inline void enable(bool state) { en_pin.set(!state); };
 
-        bool is_moving() { return moving; }
+        bool is_moving() const { return moving; }
+        bool which_direction() const { return direction; }
         void move_finished();
         StepperMotor* move( bool direction, unsigned int steps, float initial_speed= -1.0F);
         void signal_move_finished();
         StepperMotor* set_speed( float speed );
         void set_moved_last_block(bool flg) { last_step_tick_valid= flg; }
         void update_exit_tick();
-        void pause();
-        void unpause();
 
         float get_steps_per_second()  const { return steps_per_second; }
         float get_steps_per_mm()  const { return steps_per_mm; }
@@ -51,6 +50,7 @@ class StepperMotor {
         int  steps_to_target(float);
         uint32_t get_steps_to_move() const { return steps_to_move; }
         uint32_t get_stepped() const { return stepped; }
+        void force_finish_move() { force_finish= true; }
 
         template<typename T> void attach( T *optr, uint32_t ( T::*fptr )( uint32_t ) ){
             Hook* hook = new Hook();
@@ -94,11 +94,11 @@ class StepperMotor {
         uint32_t fx_counter;
         uint32_t fx_ticks_per_step;
 
-        struct {
-            bool direction:1;
+        volatile struct {
             volatile bool is_move_finished:1; // Whether the move just finished
-            bool paused:1;
             volatile bool moving:1;
+            volatile bool force_finish:1; // set to force a move to finish early
+            bool direction:1;
             bool last_step_tick_valid:1; // set if the last step tick time is valid (ie the motor moved last block)
         };
 

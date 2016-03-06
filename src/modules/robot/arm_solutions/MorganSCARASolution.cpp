@@ -1,6 +1,7 @@
 #include "MorganSCARASolution.h"
 #include <fastmath.h>
 #include "checksumm.h"
+#include "ActuatorCoordinates.h"
 #include "ConfigValue.h"
 #include "libs/Kernel.h"
 #include "StreamOutputPool.h"
@@ -58,7 +59,7 @@ float MorganSCARASolution::to_degrees(float radians) {
     return radians*(180.0F/3.14159265359f);
 }
 
-void MorganSCARASolution::cartesian_to_actuator(const float cartesian_mm[], float actuator_mm[] )
+void MorganSCARASolution::cartesian_to_actuator(const float cartesian_mm[], ActuatorCoordinates &actuator_mm )
 {
 
     float SCARA_pos[2],
@@ -103,7 +104,7 @@ void MorganSCARASolution::cartesian_to_actuator(const float cartesian_mm[], floa
 
 }
 
-void MorganSCARASolution::actuator_to_cartesian(const float actuator_mm[], float cartesian_mm[] ) {
+void MorganSCARASolution::actuator_to_cartesian(const ActuatorCoordinates &actuator_mm, float cartesian_mm[] ) {
     // Perform forward kinematics, and place results in cartesian_mm[]
 
     float y1, y2,
@@ -157,6 +158,14 @@ bool MorganSCARASolution::set_optional(const arm_options_t& options) {
     //if(i != options.end()) {
     //    morgan_scaling_z= i->second;
     //}
+    i= options.find('D');          // Undefined min
+    if(i != options.end()) {
+        this->morgan_undefined_min = i->second;
+    }
+    i= options.find('E');          // undefined max
+    if(i != options.end()) {
+        this->morgan_undefined_max = i->second;
+    }
 
     init();
     return true;
@@ -170,6 +179,8 @@ bool MorganSCARASolution::get_optional(arm_options_t& options, bool force_all) {
     options['A']= this->morgan_scaling_x;
     options['B']= this->morgan_scaling_y;
     // options['C']= this->morgan_scaling_z;
+    options['D']= this->morgan_undefined_min;
+    options['E']= this->morgan_undefined_max;
 
     return true;
 };

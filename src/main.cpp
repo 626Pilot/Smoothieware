@@ -14,17 +14,19 @@
 #include "modules/tools/endstops/Endstops.h"
 #include "modules/tools/zprobe/ZProbe.h"
 #include "modules/tools/scaracal/SCARAcal.h"
+#include "RotaryDeltaCalibration.h"
 #include "modules/tools/switch/SwitchPool.h"
 #include "modules/tools/temperatureswitch/TemperatureSwitch.h"
 #include "modules/tools/drillingcycles/Drillingcycles.h"
 #include "FilamentDetector.h"
+#include "MotorDriverControl.h"
 
 #include "modules/robot/Conveyor.h"
 #include "modules/utils/simpleshell/SimpleShell.h"
 #include "modules/utils/configurator/Configurator.h"
 #include "modules/utils/currentcontrol/CurrentControl.h"
 #include "modules/utils/player/Player.h"
-#include "modules/utils/pausebutton/PauseButton.h"
+#include "modules/utils/killbutton/KillButton.h"
 #include "modules/utils/PlayLed/PlayLed.h"
 #include "modules/utils/panel/Panel.h"
 #include "libs/Network/uip/Network.h"
@@ -32,6 +34,7 @@
 #include "checksumm.h"
 #include "ConfigValue.h"
 #include "StepTicker.h"
+#include "SlowTicker.h"
 
 // #include "libs/ChaNFSSD/SDFileSystem.h"
 #include "libs/nuts_bolts.h"
@@ -53,14 +56,15 @@
 
 #include "version.h"
 #include "system_LPC17xx.h"
+#include "platform_memory.h"
 
 #include "mbed.h"
 
 #define second_usb_serial_enable_checksum  CHECKSUM("second_usb_serial_enable")
 #define disable_msd_checksum  CHECKSUM("msd_disable")
 #define dfu_enable_checksum  CHECKSUM("dfu_enable")
+#define watchdog_timeout_checksum  CHECKSUM("watchdog_timeout")
 
-// Watchdog wd(5000000, WDT_MRI);
 
 // USB Stuff
 SDCard sd  __attribute__ ((section ("AHBSRAM0"))) (P0_9, P0_8, P0_7, P0_6);      // this selects SPI1 as the sdcard as it is on Smoothieboard
@@ -110,7 +114,11 @@ void init() {
     kernel->streams->printf("  Build version %s, Build date %s\r\n", version.get_build(), version.get_build_date());
 
     bool sdok= (sd.disk_initialize() == 0);
-    if(!sdok) kernel->streams->printf("SDCard is disabled\r\n");
+    if(!sdok) kernel->streams->printf("SDCard failed to initialize\r\n");
+
+    #ifdef NONETWORK
+        kernel->streams->printf("NETWORK is disabled\r\n");
+    #endif
 
 #ifdef DISABLEMSD
     // attempt to be able to disable msd in config
@@ -128,13 +136,12 @@ void init() {
 
 
     // Create and add main modules
-    kernel->add_module( new SimpleShell() );
-    kernel->add_module( new Configurator() );
-    kernel->add_module( new CurrentControl() );
-    kernel->add_module( new PauseButton() );
-    kernel->add_module( new PlayLed() );
-    kernel->add_module( new Endstops() );
-    kernel->add_module( new Player() );
+    kernel->add_module( new(AHB0) Player() );
+
+    kernel->add_module( new(AHB0) CurrentControl() );
+    kernel->add_module( new(AHB0) KillButton() );
+    kernel->add_module( new(AHB0) PlayLed() );
+    kernel->add_module( new(AHB0) Endstops() );
 
 
     // these modules can be completely disabled in the Makefile by adding to EXCLUDE_MODULES
@@ -162,16 +169,16 @@ void init() {
     kernel->add_module( new Spindle() );
     #endif
     #ifndef NO_UTILS_PANEL
-    kernel->add_module( new Panel() );
-    #endif
-    #ifndef NO_TOOLS_TOUCHPROBE
-    kernel->add_module( new Touchprobe() );
+    kernel->add_module( new(AHB0) Panel() );
     #endif
     #ifndef NO_TOOLS_ZPROBE
-    kernel->add_module( new ZProbe() );
+    kernel->add_module( new(AHB0) ZProbe() );
     #endif
     #ifndef NO_TOOLS_SCARACAL
-    kernel->add_module( new SCARAcal() );
+    kernel->add_module( new(AHB0) SCARAcal() );
+    #endif
+    #ifndef NO_TOOLS_ROTARYDELTACALIBRATION
+    kernel->add_module( new RotaryDeltaCalibration() );
     #endif
     #ifndef NONETWORK
     kernel->add_module( new Network() );
@@ -186,7 +193,9 @@ void init() {
     #ifndef NO_TOOLS_FILAMENTDETECTOR
     kernel->add_module( new FilamentDetector() );
     #endif
-
+    #ifndef NO_UTILS_MOTORDRIVERCONTROL
+    kernel->add_module( new MotorDriverControl(0) );
+    #endif
     // Create and initialize USB stuff
     u.init();
 
@@ -206,7 +215,22 @@ void init() {
     if( kernel->config->value( dfu_enable_checksum )->by_default(false)->as_bool() ){
         kernel->add_module( new(AHB0) DFU(&u));
     }
+
+    // 10 second watchdog timeout (or config as seconds)
+    float t= kernel->config->value( watchdog_timeout_checksum )->by_default(10.0F)->as_number();
+    if(t > 0.1F) {
+        // NOTE setting WDT_RESET with the current bootloader would leave it in DFU mode which would be suboptimal
+        kernel->add_module( new Watchdog(t*1000000, WDT_MRI)); // WDT_RESET));
+        kernel->streams->printf("Watchdog enabled for %f seconds\n", t);
+    }else{
+        kernel->streams->printf("WARNING Watchdog is disabled\n");
+    }
+
+
     kernel->add_module( &u );
+
+    // memory before cache is cleared
+    //SimpleShell::print_mem(kernel->streams);
 
     // clear up the config cache to save some memory
     kernel->config->config_cache_clear();
@@ -235,7 +259,9 @@ void init() {
         }
     }
 
+    // start the timers and interrupts
     THEKERNEL->step_ticker->start();
+    THEKERNEL->slow_ticker->start();
 }
 
 int main()

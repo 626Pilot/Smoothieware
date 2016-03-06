@@ -449,7 +449,7 @@ bool ComprehensiveDeltaStrategy::handleConfig() {
     surface_transform->depth_enabled = false;
     surface_transform->have_depth_map = false;
 
-    // Zero out the surface normal
+    // Zero out the surface plane
     set_virtual_shimming(0.0f, 0.0f, 0.0f);
     set_adjust_function(false);
 
@@ -461,7 +461,16 @@ bool ComprehensiveDeltaStrategy::handleConfig() {
 
     // Set the surface shape - deltas are usuall (but not always) round.
     // Support for rectangular build surfaces has not been implemented.
-    surface_shape = THEKERNEL->config->value(comprehensive_delta_strategy_checksum, probe_bed_shape_checksum)->by_default(PSS_CIRCLE)->as_number();
+    int shape = THEKERNEL->config->value(comprehensive_delta_strategy_checksum, probe_bed_shape_checksum)->by_default(0)->as_int();
+    switch(shape) {
+        case 0: surface_shape = PSS_CIRCLE; break;
+        case 1: surface_shape = PSS_SQUARE; break;
+        default:
+            __printf("Unknown surface shape %d. Defaulting to circular.\n", shape);
+            surface_shape = PSS_CIRCLE;
+            break;
+    }
+    
 
     // Set default eval metric for simulated annealing
     eval_metric_type = EVAL_METRIC_MEAN;
@@ -492,13 +501,13 @@ bool ComprehensiveDeltaStrategy::handleConfig() {
     init_test_points();
 
     // Probe smoothing: If your probe is super jittery, we can probe multiple times per request and average the results
-    int p = THEKERNEL->config->value(comprehensive_delta_strategy_checksum, probe_smoothing_checksum)->by_default(1)->as_number();
+    int p = THEKERNEL->config->value(comprehensive_delta_strategy_checksum, probe_smoothing_checksum)->by_default(1)->as_int();
     if(p <  1) p = 1;
     if(p > 10) p = 10;
     this->probe_smoothing = p;
 
     // Probe priming: Run the probe a specified # of times before the "real" probing (good for printers that demonstrate a Z settling issue)
-    p = THEKERNEL->config->value(comprehensive_delta_strategy_checksum, probe_priming_checksum)->by_default(0)->as_number();
+    p = THEKERNEL->config->value(comprehensive_delta_strategy_checksum, probe_priming_checksum)->by_default(0)->as_int();
     if(p <  0) p = 0;
     if(p > 10) p = 10;
     this->probe_priming = p;
@@ -2014,7 +2023,12 @@ void ComprehensiveDeltaStrategy::simulate_IK(float **cartesian, float trim[3]) {
             }
             
             // Query the robot: Where do the axes have to be for the effector to be at these coordinates?
-            THEKERNEL->robot->arm_solution->cartesian_to_actuator(pos, test_axis[j]);
+            //THEKERNEL->robot->arm_solution->cartesian_to_actuator(pos, test_axis[j]);
+            ActuatorCoordinates coords = { test_axis[j][X], test_axis[j][Y], test_axis[j][Z] };
+            THEKERNEL->robot->arm_solution->cartesian_to_actuator(pos, coords);
+            test_axis[j][X] = coords[X];
+            test_axis[j][Y] = coords[Y];
+            test_axis[j][Z] = coords[Z];
         
             // Adjust axis positions to simulate the effects of trim
             test_axis[j][X] += trim[X];
@@ -2050,7 +2064,9 @@ float ComprehensiveDeltaStrategy::simulate_FK_and_get_energy(float **axis_positi
             trimmed[Y] = axis_position[j][Y] - trim[Y];
             trimmed[Z] = axis_position[j][Z] - trim[Z];
 
-            THEKERNEL->robot->arm_solution->actuator_to_cartesian(trimmed, cartesian[j]);
+            //THEKERNEL->robot->arm_solution->actuator_to_cartesian(trimmed, cartesian[j]);
+            ActuatorCoordinates coords = { trimmed[X], trimmed[Y], trimmed[Z] };
+            THEKERNEL->robot->arm_solution->actuator_to_cartesian(coords, cartesian[j]);
 
             // Adjust Cartesian positions for surface transform plane (virtual shimming)
             if(surface_transform->plane_enabled) {

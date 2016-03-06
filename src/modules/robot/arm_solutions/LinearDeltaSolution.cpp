@@ -1,4 +1,5 @@
 #include "LinearDeltaSolution.h"
+#include "ActuatorCoordinates.h"
 #include "checksumm.h"
 #include "ConfigValue.h"
 #include "libs/Kernel.h"
@@ -63,7 +64,7 @@ void LinearDeltaSolution::init() {
 }
 
 // Inverse kinematics (translates Cartesian XYZ coordinates for the effector, into carriage positions)
-void LinearDeltaSolution::cartesian_to_actuator(const float cartesian_mm[], float actuator_mm[] )
+void LinearDeltaSolution::cartesian_to_actuator(const float cartesian_mm[], ActuatorCoordinates &actuator_mm )
 {
 
     // Here, we answer the following question:
@@ -86,7 +87,7 @@ void LinearDeltaSolution::cartesian_to_actuator(const float cartesian_mm[], floa
 
 // Forward kinematics (translates carriage positions into Cartesian XYZ)
 // At the time of writing, nothing appears to call this method for any reason except ComprehensiveDeltaStrategy (see ZProbe module)
-void LinearDeltaSolution::actuator_to_cartesian(const float actuator_mm[], float cartesian_mm[] )
+void LinearDeltaSolution::actuator_to_cartesian(const ActuatorCoordinates &actuator_mm, float cartesian_mm[] )
 {
 
     // Here, we answer the following question:

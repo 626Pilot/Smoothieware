@@ -4,7 +4,7 @@
 #include "BaseSolution.h"
 #include "StreamOutputPool.h"
 
-// You have to include this to get memcpy
+// Have to include this to get memcpy
 #include <cstring>
 
 #define X 0
@@ -19,14 +19,15 @@ class LinearDeltaSolution : public BaseSolution {
         LinearDeltaSolution(Config*);
 
         // Kinematics
-        void cartesian_to_actuator(const float[], float[] );
-        void actuator_to_cartesian(const float[], float[] );
+        void cartesian_to_actuator(const float[], ActuatorCoordinates &) override;
+        void actuator_to_cartesian(const ActuatorCoordinates &, float[] ) override;
         
         // Tower lean
         void get_tower_xyz_for_dist(uint8_t tower, float xyz[], float dist);
 
-        bool set_optional(const arm_options_t& options);
-        bool get_optional(arm_options_t& options, bool force_all);
+        // Options
+        bool set_optional(const arm_options_t& options) override;
+        bool get_optional(arm_options_t& options, bool force_all) override;
 
     private:
         void init();

@@ -67,6 +67,7 @@ kill_button_pin                              2.12             # kill button pin.
 
 #msd_disable                                 false            # disable the MSD (USB SDCARD) when set to true (needs special binary)
 #dfu_enable                                  false            # for linux developers, set to true to enable DFU
+#watchdog_timeout                            10               # watchdog timeout in seconds, default is 10, set to 0 to disable the watchdog
 
 # Extruder module configuration
 extruder.hotend.enable                          true             # Whether to activate the extruder module at all. All configuration is ignored if false
@@ -150,8 +151,8 @@ temperature_control.hotend.designator        T                #
 #temperature_control.hotend2.heater_pin        1.23             # Pin that controls the heater
 #temperature_control.hotend2.thermistor        EPCOS100K        # see http://smoothieware.org/temperaturecontrol#toc5
 ##temperature_control.hotend2.beta             4066             # or set the beta value
-#temperature_control.hotend2.set_m_code        884              #
-#temperature_control.hotend2.set_and_wait_m_code 889            #
+#temperature_control.hotend2.set_m_code        104              #
+#temperature_control.hotend2.set_and_wait_m_code 109            #
 #temperature_control.hotend2.designator        T1               #
 
 #temperature_control.hotend2.p_factor          13.7           # permanently set the PID values after an auto pid
@@ -202,7 +203,7 @@ switch.fan.output_type                       pwm              # pwm output setta
 
 # Endstops
 endstops_enable                              true             # the endstop module is enabled by default and can be disabled here
-#corexy_homing                               false            # set to true if homing on a hbit or corexy
+#corexy_homing                               false            # set to true if homing on a hbot or corexy
 alpha_min_endstop                            1.24^            # add a ! to invert if endstop is NO connected to ground
 alpha_max_endstop                            1.25^            # NOTE set to nc if this is not installed
 alpha_homing_direction                       home_to_min      # or set to home_to_max and set alpha_max
@@ -222,6 +223,7 @@ gamma_max                                    200              #
 # optional order in which axis will home, default is they all home at the same time,
 # if this is set it will force each axis to home one at a time in the specified order
 #homing_order                                 XYZ              # x axis followed by y then z last
+#move_to_origin_after_home                    false            # move XY to 0,0 after homing
 
 # optional enable limit switches, actions will stop if any enabled limit switch is triggered
 #alpha_limit_enable                          false            # set to true to enable X min and max limit switches

@@ -3,16 +3,13 @@
 /*
  * LED indicator:
  * off   = not paused, nothing to do
- * slow flash = paused
  * fast flash = halted
  * on    = a block is being executed
  */
 
-#include "PauseButton.h"
 #include "modules/robot/Conveyor.h"
 #include "SlowTicker.h"
 #include "Config.h"
-#include "Pauser.h"
 #include "checksumm.h"
 #include "ConfigValue.h"
 #include "Gcode.h"
@@ -56,12 +53,7 @@ uint32_t PlayLed::led_tick(uint32_t)
 
     if(++cnt >= 6) { // 6 ticks ~ 500ms
         cnt= 0;
-
-        if (THEKERNEL->pauser->paused()) {
-            led.set(!led.get());
-        } else {
-            led.set(!THEKERNEL->conveyor->is_queue_empty());
-        }
+        led.set(!THEKERNEL->conveyor->is_queue_empty());
     }
 
     return 0;

@@ -13,7 +13,7 @@ You will need to add some settings to your config file - see the Azteeg X5 and S
 
 
 ==Configuration File==
-You'll need to pull one of the example files (boardname.delta) out of ConfigSamples and adapt it for your printer. **Make sure you don't leave ANYTHING out.** If you do, strange things may happen!
+You'll need to pull one of the example files (boardname.delta) out of ConfigSamples and adapt it for your printer. **Make sure you don't leave ANYTHING out.** If you do, strange things WILL happen!
 
 **This module uses a lot of RAM.** It has a lot to keep track of! You may find it necessary to disable LCD panel and network support in your configuration file until after you're done calibrating. (It will be necessary to leave the ComprehensiveDeltaStrategy module turned on at all times for depth correction, but it uses significantly less RAM when it's not actively calibrating!)
 
@@ -26,11 +26,12 @@ The recommended way to use this on a Delta printer is:
 * G31 A (depth mapping - corrects errors in Z, but not X or Y - benefits from simulated annealing, though)
 * M500 to save everything
 
+*Hint:* Try leaving the P command (adjust arm length) out of G31 H O P Q R. You should know your arm length already, and it should stay fixed.
 *Hint:* Type G31 by itself to get a full list of its available commands. You can specify different annealing temperature multipliers per-variable! This isn't usually necessary, but nice to have.
 
 
 ==Probe Calibration==
-It's *essential* to run G29 first, to get an idea of how repeatable your probe is - and to tune the probing parameters, which can have a HUGE impact on accuracy! You want 30 microns (0.03mm) or less, ideally zero. If your probe's repeatability is worse than that, you may have printed your mount too loosely (not enough filament flow) or you may have "delta arm blues" or some other slop in the printer that should be corrected before trying any sort of calibration.
+It's *essential* to run G29 first, to get an idea of how repeatable your probe is - and to tune the probing parameters, which can have a HUGE impact on accuracy! You want 30 microns (0.03mm) or less, ideally zero. If your probe's repeatability is worse than that, you may have printed your mount too loosely (not enough filament flow) or you may have "delta arm blues" or some other slop in the printer that should be corrected before trying any sort of calibration. You may also have bad probe electronics! If you're using an endstop probe and it has crashed into the bed a few times, it may have damaged the switch. If you can't get good repeatability, try replacing it!
 
 Priming and smoothing will make everything take longer to run, but may provide greater accuracy - provided that they actually provide a benefit, which they may or may not! If you need excessive priming or smoothing, it may be that your feedrates (particularly slow_feedrate) and accelerations are off. If they're too high, you may have repeatability issues; and if they're too low, you may have problems from the steppers vibrating. (They will tend to vibrate more the slower you go!)
 
@@ -38,7 +39,7 @@ The best way to calibrate your probe is to use the command G29 E S15 with differ
 
 
 ==Heated Bed==
-If you have a heated bed, you MAY want to turn it on during the GeneB-style calibration (G32) and the simulated annealing routine (G31 OPQRS). However, you may want to leave it off instead. Try it both ways. The thermal expansion of the print surface may cause better results at room temperature, or at your favorite printing temperature. Choose the one that produces a better calibration (the one with the lowest energy).
+If you have a heated bed, you MAY want to turn it on during the GeneB-style calibration (G32) and the simulated annealing routine (G31 HOPQR). However, you may want to leave it off instead. Try it both ways. The thermal expansion of the print surface may cause better results at room temperature, or at your favorite printing temperature. Choose the one that produces a better calibration (the one with the lowest energy).
 
 If you don't have a heated bed, it will be necessary to set *comprehensive-delta.probe_ignore_bed_temp* to *true* in your config.
 
@@ -49,11 +50,11 @@ If you don't have a heated bed, it will be necessary to set *comprehensive-delta
 
 
 ==Printer Calibration==
-After your probe is calibrated, you can run G32, which will perform a standard "GeneB"-style calibration, in which delta radius and endstops are adjusted. That will get your printer a little closer to its optimal configuration. (If you already have an existing sorta-good calibration, you can skip this step.)
+After your probe is calibrated, you can run G32, which will perform a standard "GeneB"-style calibration, in which delta radius and endstops are adjusted. That will get your printer a little closer to its optimal configuration. It will also clear out all of the adjustment variables (tower radius/angle, surface normal).
 
-Then, you can run the simulated annealing calibration. Type G31 OPQRS. If you want to completely start from scratch, you can run G31 OPQRSY (the Y means "reset all offsets to 0") - but I don't recommend that - better to start from a fresh G32 (GeneB) calibration. The printer will go down and tap the print surface in a grid, and then start the simulated annealing process. It should take a few minutes, and you'll see two of the LEDs on the controller flash on and off slowly to indicate that it's working.
+Then, you can run the simulated annealing calibration. Type G31 HOQR (to anneal everything except the arm length, which is a GOOD IDEA) or G31 HOPQR (to anneal everything including arm length). If you want to completely start from scratch, you can run G31 HOQRY (the Y means "reset all offsets to 0") - but I don't recommend that - better to start from a fresh G32 (GeneB) calibration. The printer will go down and tap the print surface in a grid, and then start the simulated annealing process. It should take a few minutes, and you'll see two of the LEDs on the controller flash on and off slowly to indicate that it's working.
 
-The algorithm has the ability to transit through worse solutions in order to find better ones, so you may find that as you run G31, it gets worse before it gets better, in two ways. First, the readout that tells you the energy level (during annealing) may rise before it falls. (You want the energy reading to be as low as possible - ideally 0. 0.05 or less is optimal, and 0.1 is "barely acceptable.")
+The algorithm has the ability to transit through worse solutions in order to find better ones, so you may find that as you run G31, it gets worse before it gets better, in two ways. First, the readout that tells you the energy level (during annealing) may rise before it falls. (You want the energy reading to be as low as possible - ideally 0. 0.05 or less is optimal.)
 
 Second, you may find that running G31 produces worse (higher energy) results that then become better. Each time you get a better result, my recommendation is to type M500 so that the calibration is saved. That way, you can run the annealing process five times if you want, and if it never produces an improvement, you can just reset the controller.
 
@@ -76,14 +77,26 @@ G31 HOPQR fixes errors in X, Y, and Z, assisting greatly with dimensional accura
 When you're satisfied with your calibration, type M500 to save everything. If you turn the printer off and then on again, it WON'T lose its configuration, so you only have to do this calibration once. Run it again if the printer is moved, or a heavy object or person collides with it.
 
 
+==Depth Mapping Visualizer==
+pyjamasam (SeeMeCNC forums) has posted a Python script that you can use to visualize the amount of Z error across your print surface by analyzing dm_surface_transform, a file that this firmware will put on your SD card after you run G31 A. I've included it in the same directory as this text file.
+
+To use, copy dm_surface_transform from the SD card to the current directory, and then run this command:
+python dm_surface_analyzer.py
+
+You will need to have Python and matplotlib installed. If you open dm_surface_analyzer.py in a text editor, you can see the instructions right at the top.
+
+
+
 Original Smoothie README below:
+=======
+Current build status: {{https://travis-ci.org/Smoothieware/Smoothieware.svg?branch=edge}}
 
 ==Overview
 Smoothie is a free, opensource, high performance G-code interpreter and CNC controller written in Object-Oriented C++ for the LPC17xx micro-controller ( ARM Cortex M3 architecture ). It will run on a mBed, a LPCXpresso, a SmoothieBoard, R2C2 or any other LPC17xx-based board. The motion control part is a port of the awesome grbl.
 
 Documentation can be found here : [[http://smoothieware.org/]]
 
-NOTE it is not necessary to build Smoothie yourself unless you want to. prebuilt binaries are availble here http://builds.smoothieware.org/
+NOTE it is not necessary to build Smoothie yourself unless you want to. prebuilt binaries are available here: [[http://triffid-hunter.no-ip.info/Smoothie.html|Nightly builds]] and here: [[https://github.com/Smoothieware/Smoothieware/blob/edge/FirmwareBin/firmware.bin?raw=true|recent stable build]]
 
 ==Quick Start
 These are the quick steps to get Smoothie dependencies installed on your computer:
@@ -110,3 +123,9 @@ make upload
 if you have dfu-util installed.
 
 Alternatively copy the file LPC1768/main.bin to the sdcard calling it firmware.bin and reset.
+
+==Donate
+The Smoothie firmware is free software developed by volunteers. If you find this software useful, want to say thanks and encourage development, please consider a 
+[[https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=9QDYFXXBPM6Y6&lc=US&item_name=Smoothieware%20development&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted|Donation]]
+
+

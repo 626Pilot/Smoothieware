@@ -11,6 +11,7 @@
 #include "libs/utils.h"
 #include "gpio.h"
 #include "modules/tools/temperaturecontrol/TemperatureControlPublicAccess.h"
+#include "modules/robot/ActuatorCoordinates.h"
 
 // This depends on ThreePointStrategy's Plane3D.h for virtual shimming.
 #include "Plane3D.h"
