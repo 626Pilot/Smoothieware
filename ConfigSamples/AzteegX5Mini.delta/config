@@ -30,6 +30,7 @@ arm_length                                   269.00           # length of the de
 # PLEASE NOTE: probe_offset_x and probe_offset_y MUST be 0 if you want to use depth (Z) correction!
 # ---------------------------------------------------------------------
 leveling-strategy.comprehensive-delta.enable              true
+comprehensive-delta.probe_bed_shape                       0                # 0 = circle, 1 = square
 comprehensive-delta.probe_smoothing                       1                # if your probe has repeatability issues, this will probe multiple times & take the average (default 1)
 comprehensive-delta.probe_priming                         5                # if your probe keeps "creeping down", this will run it the specified number of times to get it to settle
 comprehensive-delta.probe_acceleration                    75               # acceleration will be temporarily set to this during probing; original is restored later; 100 is a good value
