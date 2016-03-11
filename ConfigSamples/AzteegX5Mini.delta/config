@@ -1,14 +1,14 @@
 # Robot module configurations : general handling of movement G-codes and slicing into moves
 # By 626Pilot of the SeeMeCNC forums, based on mhackney's default file & reorganized for quicker editing
 # Thanks to Polygonhell and Flateric for the help!
-
-
+ 
+ 
 # The gamma tower height is used for all towers on delta robots
 # Rest of the tower config is below, under Endstops
 # ---------------------------------------------------------------------
 gamma_max                                    355
-
-
+ 
+ 
 # Delta Geometry
 # ---------------------------------------------------------------------
 # arm_radius is DELTA_RADIUS in Repetier
@@ -31,28 +31,28 @@ arm_length                                   269.00           # length of the de
 # ---------------------------------------------------------------------
 leveling-strategy.comprehensive-delta.enable              true
 comprehensive-delta.probe_bed_shape                       0                # 0 = circle, 1 = square
-comprehensive-delta.probe_smoothing                       1                # if your probe has repeatability issues, this will probe multiple times & take the average (default 1)
-comprehensive-delta.probe_priming                         5                # if your probe keeps "creeping down", this will run it the specified number of times to get it to settle
-comprehensive-delta.probe_acceleration                    75               # acceleration will be temporarily set to this during probing; original is restored later; 100 is a good value
+comprehensive-delta.probe_smoothing                       0                # if your probe has repeatability issues, this will probe multiple times & take the average (default 1)
+comprehensive-delta.probe_priming                         0                # if your probe keeps "creeping down", this will run it the specified number of times to get it to settle
+comprehensive-delta.probe_acceleration                    100              # acceleration will be temporarily set to this during probing; original is restored later; 100 is a good value
 comprehensive-delta.probe_offset_x                        0                # distance between the probe and the nozzle
 comprehensive-delta.probe_offset_y                        0                #
-comprehensive-delta.probe_offset_z                        -5               #
+comprehensive-delta.probe_offset_z                        0                #
 comprehensive-delta.probe_ignore_bed_temp                 false            # Don't wait for bed temp to stabilize (ONLY use this if you DON'T have a heated bed!)
 
 
 # Optional Z probe, see http://smoothieware.org/zprobe
 # ---------------------------------------------------------------------
-probe                                        endstop
-probe_pin                                    1.29             # optional pin for probe
+zprobe.probe                                 endstop
+zprobe.probe_pin                             1.28             # optional pin for probe
 zprobe.enable                                true             # set to true to enable a zprobe
 zprobe.probe_pin                             1.29!^           # pin probe is attached to if NC remove the !, default 1.29!^
-zprobe.slow_feedrate                         35               # mm/sec probe feed rate
-zprobe.fast_feedrate                         70               # move feedrate
-zprobe.debounce_count                        0                # set if noisy
-zprobe.probe_radius                          100              # how far out from bed center to probe
-zprobe.probe_height                          10               # how high the probe has to be moved above trigger elevation so that it won't drag
-zprobe.decelerate_on_trigger                 true             # beneficial, unless your probe has no runout after it hits the trigger - in which case, set this to false
-zprobe.decelerate_runout                     10               # how many millimeters your probe can move past the trigger point; we'll abort any decel > this long
+zprobe.slow_feedrate                         2                # mm/sec probe feed rate
+zprobe.fast_feedrate                         60               # move feedrate
+zprobe.debounce_count                        100              # set if noisy
+zprobe.probe_radius                          120              # how far out from bed center to probe
+zprobe.probe_height                          3                # how high the probe has to be moved above trigger elevation so that it won't drag
+zprobe.decelerate_on_trigger                 false            # beneficial, unless your probe has no runout after it hits the trigger - in which case, set this to false
+zprobe.decelerate_runout                     0.25             # how many millimeters your probe can move past the trigger point; we'll abort any decel > this long
 
 
 # Speeds
@@ -62,11 +62,12 @@ default_seek_rate                            8000             # Default rate ( m
 mm_per_arc_segment                           0.25             # Arcs are cut into segments ( lines ), this is the length for these segments
                                                               # Smaller values mean more resolution, higher values mean faster computation
 mm_per_line_segment                          5                # Lines can be cut into segments (not useful with cartesian robots).
-delta_segments_per_second                    250              # segments per second used for deltas
-
-
+delta_segments_per_second                    200              # segments per second used for deltas
+ 
+ 
 # Arm solution configuration : Delta robot. Translates mm positions into stepper positions
-# This is for an old Rostock MAX with 15-teeth pullies. Use a belt/pulley calculator to find the values for your machine
+# THESE VALUES PROBABLY WON'T WORK WITH YOUR PRINTER!!!
+# Use a belt/pulley calculator to find the values for your machine.
 # ---------------------------------------------------------------------
 alpha_steps_per_mm                           213.3333         # Steps per mm for alpha stepper
 beta_steps_per_mm                            213.3333         # Steps per mm for beta stepper
@@ -75,46 +76,45 @@ gamma_steps_per_mm                           213.3333         # Steps per mm for
 
 # Planner module configuration : Look-ahead and acceleration configuration
 # ---------------------------------------------------------------------
-acceleration                                 1000             # Acceleration in mm/second/second.
+acceleration                                 500              # Acceleration in mm/second/second.
 acceleration_ticks_per_second                1000             # Number of times per second the speed is updated
 planner_queue_size                           32               # DO NOT CHANGE THIS UNLESS YOU KNOW EXACTLY WHAT YOUR ARE DOING
-junction_deviation                           0.01             # Similar to the old "max_jerk", in millimeters, see : https://github.com/grbl/grbl/blob/master/planner.c#L409
+junction_deviation                           0.2              # Similar to the old "max_jerk", in millimeters, see : https://github.com/grbl/grbl/blob/master/planner.c#L409
+#minimum_planner_speed                       0.0              # sets the minimum planner speed in mm/sec
 
-
-# Endstops
+ 
+# Endstops (^ after pin = invert)
 # ---------------------------------------------------------------------
 endstops_enable                              true             # the endstop module is enabled by default and can be disabled here
 delta_homing                                 true             # forces all three axis to home a the same time regardless of what is specified in G28
+
+alpha_min_endstop                            nc
 alpha_max_endstop                            1.24^            #
 alpha_homing_direction                       home_to_max      # or set to home_to_max and set alpha_max
 alpha_min                                    0                # this gets loaded after homing when home_to_min is set
 alpha_max                                    0                # this gets loaded after homing when home_to_max is set
+
+beta_min_endstop                             nc
 beta_max_endstop                             1.26^            #
 beta_homing_direction                        home_to_max      #
 beta_min                                     0                #
 beta_max                                     0                #
+
+gamma_min_endstop                            nc
 gamma_max_endstop                            1.28^            #
 gamma_homing_direction                       home_to_max      #
 gamma_min                                    0                #
-# gamma_max moved to top of file, since it's one of the most frequenly adjusted settings
-
-# optional enable limit switches, actions will stop if any enabled limit switch is triggered
-#alpha_limit_enable                          false            # set to true to enable X min and max limit switches
-#beta_limit_enable                           false            # set to true to enable Y min and max limit switches
-#gamma_limit_enable                          false            # set to true to enable Z min and max limit switches
-
-#move_to_origin_after_home                    true             # move XY to 0,0 after homing
-
-
-
+# gamma_max moved to top of file, with the rest of the most significant delta robot settings
+ 
+ 
 # Homing
 # ---------------------------------------------------------------------
-alpha_fast_homing_rate_mm_s                  120              # feedrates in mm/second
-beta_fast_homing_rate_mm_s                   120              # "
-gamma_fast_homing_rate_mm_s                  120              # "
-alpha_slow_homing_rate_mm_s                  10               # "
-beta_slow_homing_rate_mm_s                   10               # "
-gamma_slow_homing_rate_mm_s                  10               # "
+alpha_fast_homing_rate_mm_s                  70               # feedrates in mm/second
+beta_fast_homing_rate_mm_s                   70               # "
+gamma_fast_homing_rate_mm_s                  70               # "
+alpha_slow_homing_rate_mm_s                  5                # "
+beta_slow_homing_rate_mm_s                   5                # "
+gamma_slow_homing_rate_mm_s                  5                # "
 alpha_homing_retract_mm                      5                # distance in mm
 beta_homing_retract_mm                       5                # "
 gamma_homing_retract_mm                      5                # "
@@ -124,14 +124,22 @@ alpha_trim                                   0                # software trim fo
 beta_trim                                    0                # software trim for beta stepper endstop
 gamma_trim                                   0                # software trim for gamma stepper endstop
 
+move_to_origin_after_home                    false            # move XY to 0,0 after homing
+#endstop_debounce_count                      100              # uncomment if you get noise on your endstops
+
+# optional enable limit switches, actions will stop if any enabled limit switch is triggered (all are set for delta)
+#alpha_limit_enable                          false            # set to true to enable X min and max limit switches
+#beta_limit_enable                           false            # set to true to enable Y min and max limit switches
+#gamma_limit_enable                          false            # set to true to enable Z min and max limit switches
+
 
 # Stepper module configuration
 # ---------------------------------------------------------------------
 microseconds_per_step_pulse                  1                # Duration of step pulses to stepper drivers, in microseconds
-base_stepping_frequency                      100000           # Base frequency for stepping
-
-
-
+minimum_steps_per_minute                     1200             # Never step slower than this
+base_stepping_frequency                      100000           # Base frequency for stepping, higher gives smoother movement
+ 
+ 
 # Stepper module pins ( ports, and pin numbers, appending "!" to the number will invert a pin )
 # ---------------------------------------------------------------------
 alpha_step_pin                               2.1              # Pin for alpha stepper step signal
@@ -221,6 +229,14 @@ switch.fan.enable                            true             #
 switch.fan.input_on_command                  M106             #
 switch.fan.input_off_command                 M107             #
 switch.fan.output_pin                        2.4              #
+switch.fan.output_type                       pwm              #
+#switch.fan.max_pwm                           255              # set max pwm for the pin default is 255
+
+#switch.misc.enable                           true             #
+#switch.misc.input_on_command                 M42              #
+#switch.misc.input_off_command                M43              #
+#switch.misc.output_pin                       2.4              #
+#switch.misc.output_type                      digital          # just an on or off pin
 
 
 # Automatically toggle a switch at a specified temperature
@@ -273,6 +289,16 @@ panel.blue_led_pin                           4.29             # pin for blue led
 panel.buzz_pin                               0.25             # pin for buzzer on EXP2
 panel.click_button_pin                       2.11!^           # click button
 
+# Example of a custom menu entry, which will show up in the Custom entry.
+# NOTE _ gets converted to space in the menu and commands, | is used to separate multiple commands
+custom_menu.power_on.enable                true              #
+custom_menu.power_on.name                  Power_on          #
+custom_menu.power_on.command               M80               #
+
+custom_menu.power_off.enable               true              #
+custom_menu.power_off.name                 Power_off         #
+custom_menu.power_off.command              M81               #
+
 panel.external_sd                            true             # set to true if there is an extrernal sdcard on the panel
 panel.external_sd.spi_channel                0                # set spi channel the sdcard is on
 panel.external_sd.spi_cs_pin                 1.23             # set spi chip select for the sdcard
@@ -289,6 +315,11 @@ kill_button_pin                              2.12             # kill button pin.
 #panel.encoder_resolution                    4                 # override number of clicks to move 1 item (default is 4)
 #panel.button_pause_pin                      1.22^             # kill/pause set one of these for the auxilliary button on viki2
 #panel.back_button_pin                       1.22!^            # back button recommended to use this on EXP1
+
+# pins used with other panels
+#panel.up_button_pin                         0.1!              # up button if used
+#panel.down_button_pin                       0.0!              # down button if used
+#panel.click_button_pin                      0.18!             # click button if used
 
 
 # Azteeg specific settings - do not change!
@@ -362,3 +393,19 @@ panel.bed_temperature                        60                # temp to set bed
 currentcontrol_module_enable                 true            #
 digipot_max_current                          2.4             # max current
 digipot_factor                               106.0           # factor for converting current to digipot value
+
+#watchdog_timeout                            10               # watchdog timeout in seconds, default is 10, set to 0 to disable the watchdog
+
+
+# Network settings
+# ---------------------------------------------------------------------
+#network.enable                               true             # enable the ethernet network services
+#network.webserver.enable                     true             # enable the webserver
+#network.telnet.enable                        false            # enable the telnet server
+#network.plan9.enable                         false            # enable the plan9 network filesystem
+#network.ip_address                           auto             # use dhcp to get ip address (but then, how do you know it...?)
+# uncomment the 3 below to manually setup ip address
+#network.ip_address                           192.168.1.200    # the IP address
+#network.ip_mask                              255.255.255.0    # the ip mask
+#network.ip_gateway                           192.168.1.1      # the gateway address
+#network.mac_override                         xx.xx.xx.xx.xx.xx  # override the MAC address, only do this if you have a conflict

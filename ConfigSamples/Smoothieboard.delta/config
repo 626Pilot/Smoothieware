@@ -6,19 +6,19 @@
 # The gamma tower height is used for all towers on delta robots
 # Rest of the tower config is below, under Endstops
 # ---------------------------------------------------------------------
-gamma_max                                    300.218
+gamma_max                                    355
  
  
 # Delta Geometry
 # ---------------------------------------------------------------------
 # arm_radius is DELTA_RADIUS in Repetier
 # DELTA_RADIUS = PRINTER_RADIUS - END_EFFECTOR_HORIZONTAL_OFFSET - CARRIAGE_HORIZONTAL_OFFSET
-#              = 200            - 33                             - 34
-#              = 133
+#              = 199.0          - 33                             - 37.5
+#              = 128.5
 # ---------------------------------------------------------------------
 arm_solution                                 linear_delta     # default linear_delta, you can also try kossel
-arm_radius                                   133.0            # this is the horiontal distance from hinge to hinge when the effector is centered
-arm_length                                   300.00           # length of the delta arms (hopefully they're all the same!)
+arm_radius                                   128.5            # this is the horiontal distance from hinge to hinge when the effector is centered
+arm_length                                   269.00           # length of the delta arms (hopefully they're all the same!)
 
 
 # If you have a Z probe, you can select a calibration strategy here
@@ -37,7 +37,7 @@ comprehensive-delta.probe_acceleration                    100              # acc
 comprehensive-delta.probe_offset_x                        0                # distance between the probe and the nozzle
 comprehensive-delta.probe_offset_y                        0                #
 comprehensive-delta.probe_offset_z                        0                #
-comprehensive-delta.probe_ignore_bed_temp                 true             # Don't wait for bed temp to stabilize (ONLY use this if you DON'T have a heated bed!)
+comprehensive-delta.probe_ignore_bed_temp                 false            # Don't wait for bed temp to stabilize (ONLY use this if you DON'T have a heated bed!)
 
 
 # Optional Z probe, see http://smoothieware.org/zprobe
@@ -48,7 +48,7 @@ zprobe.enable                                true             # set to true to e
 zprobe.probe_pin                             1.28^            # pin probe is attached to if NC remove the !, default 1.29!^
 zprobe.slow_feedrate                         2                # mm/sec probe feed rate
 zprobe.fast_feedrate                         60               # move feedrate
-zprobe.debounce_count                        2000             # set if noisy
+zprobe.debounce_count                        100              # set if noisy
 zprobe.probe_radius                          120              # how far out from bed center to probe
 zprobe.probe_height                          3                # how high the probe has to be moved above trigger elevation so that it won't drag
 zprobe.decelerate_on_trigger                 false            # beneficial, unless your probe has no runout after it hits the trigger - in which case, set this to false
@@ -66,7 +66,8 @@ delta_segments_per_second                    200              # segments per sec
  
  
 # Arm solution configuration : Delta robot. Translates mm positions into stepper positions
-# This is for an old Rostock MAX with 15-teeth pullies. Use a belt/pulley calculator to find the values for your machine
+# THESE VALUES PROBABLY WON'T WORK WITH YOUR PRINTER!!!
+# Use a belt/pulley calculator to find the values for your machine.
 # ---------------------------------------------------------------------
 alpha_steps_per_mm                           160              # Steps per mm for alpha stepper, was 213.333333 under 1/32 microstepping. Smoothieboard only has 16x :~(
 beta_steps_per_mm                            160              # Steps per mm for beta stepper
@@ -79,25 +80,26 @@ acceleration                                 500              # Acceleration in 
 acceleration_ticks_per_second                1000             # Number of times per second the speed is updated
 planner_queue_size                           32               # DO NOT CHANGE THIS UNLESS YOU KNOW EXACTLY WHAT YOUR ARE DOING
 junction_deviation                           0.2              # Similar to the old "max_jerk", in millimeters, see : https://github.com/grbl/grbl/blob/master/planner.c#L409
+#minimum_planner_speed                       0.0              # sets the minimum planner speed in mm/sec
 
  
 # Endstops (^ after pin = invert)
 # ---------------------------------------------------------------------
 endstops_enable                              true             # the endstop module is enabled by default and can be disabled here
 delta_homing                                 true             # forces all three axis to home a the same time regardless of what is specified in G28
- 
+
 alpha_min_endstop                            nc
 alpha_max_endstop                            1.25^            # Was 1.25^
 alpha_homing_direction                       home_to_max      # or set to home_to_max and set alpha_max
 alpha_min                                    0                # this gets loaded after homing when home_to_min is set
 alpha_max                                    0                # this gets loaded after homing when home_to_max is set
- 
+
 beta_min_endstop                             nc
 beta_max_endstop                             1.27^            #
 beta_homing_direction                        home_to_max      #
 beta_min                                     0                #
 beta_max                                     0                #
- 
+
 gamma_min_endstop                            nc
 gamma_max_endstop                            1.29^            #
 gamma_homing_direction                       home_to_max      #
@@ -116,13 +118,21 @@ gamma_slow_homing_rate_mm_s                  5                # "
 alpha_homing_retract_mm                      5                # distance in mm
 beta_homing_retract_mm                       5                # "
 gamma_homing_retract_mm                      5                # "
- 
-# These can be used instead of adjusting the endstop screws (don't bother setting these here - they live in config-override)
+
+# These can be used instead of adjusting the endstop screws
 alpha_trim                                   0                # software trim for alpha stepper endstop (in mm) - moves down
 beta_trim                                    0                # software trim for beta stepper endstop
 gamma_trim                                   0                # software trim for gamma stepper endstop
- 
- 
+
+move_to_origin_after_home                    false            # move XY to 0,0 after homing
+#endstop_debounce_count                      100              # uncomment if you get noise on your endstops
+
+# optional enable limit switches, actions will stop if any enabled limit switch is triggered (all are set for delta)
+#alpha_limit_enable                          false            # set to true to enable X min and max limit switches
+#beta_limit_enable                           false            # set to true to enable Y min and max limit switches
+#gamma_limit_enable                          false            # set to true to enable Z min and max limit switches
+
+
 # Stepper module configuration
 # ---------------------------------------------------------------------
 microseconds_per_step_pulse                  1                # Duration of step pulses to stepper drivers, in microseconds
@@ -206,7 +216,7 @@ temperature_control.hotend1.thermistor        EPCOS100K        # see http://smoo
 temperature_control.hotend1.beta              4066             # or set the beta value
 temperature_control.hotend1.set_m_code        104              #
 temperature_control.hotend1.set_and_wait_m_code 109            #
-temperature_control.hotend1.designator        T0                #
+temperature_control.hotend1.designator        T0               #
 temperature_control.hotend1.p_factor          30
 temperature_control.hotend1.i_factor          1
 temperature_control.hotend1.d_factor          15
@@ -240,12 +250,12 @@ temperature_control.bed.thermistor           Honeywell100K    #
 temperature_control.bed.set_m_code           140              #
 temperature_control.bed.set_and_wait_m_code  190              #
 temperature_control.bed.designator           B                #
- 
+
 # uncomment followng to use bang bang isntead of PID for the bed (best for relay conrolled hotbeds)
 #temperature_control.bed.bang_bang            false            # set to true to use bang bang control rather than PID
 #temperature_control.bed.hysteresis           2.0              # set to the temperature in degrees C to use as hysteresis when using bang bang
- 
- 
+
+
 # Switch module for fan control
 # ---------------------------------------------------------------------
 switch.fan.enable                            true             #
@@ -253,25 +263,42 @@ switch.fan.input_on_command                  M106             #
 switch.fan.input_off_command                 M107             #
 switch.fan.output_pin                        2.6              #
 switch.fan.output_type                       pwm              #
- 
+#switch.fan.max_pwm                           255              # set max pwm for the pin default is 255
+
+#switch.misc.enable                           true             #
+#switch.misc.input_on_command                 M42              #
+#switch.misc.input_off_command                M43              #
+#switch.misc.output_pin                       2.4              #
+#switch.misc.output_type                      digital          # just an on or off pin
+
+
 # Automatically toggle a switch at a specified temperature
 # (ueful to turn on a fan or water pump to cool the hotend)
 # ---------------------------------------------------------------------
-temperatureswitch.hotend.enable              false            #
+temperatureswitch.hotend.enable	             false            #
 temperatureswitch.hotend.type                fan              # select which MOSFET to use, fan or misc (small MOSFETs)
 temperatureswitch.hotend.threshold_temp      60.0             # temperature to turn on (if rising) or off the switch
 temperatureswitch.hotend.heatup_poll         5                # poll heatup at 15 sec intervals
 temperatureswitch.hotend.cooldown_poll       5                # poll cooldown at 60 sec intervals
- 
- 
+
+
+# Filament Detector
+# ---------------------------------------------------------------------
+#filament_detector.enable                     true             #
+#filament_detector.encoder_pin                0.26             # must be interrupt enabled pin (0.26, 0.27, 0.28)
+#filament_detector.seconds_per_check          2                # may need to be longer   
+#filament_detector.pulses_per_mm              1.0              # will need to be tuned
+#filament_detector.bulge_pin                  0.27             # optional bulge detector switch and/or manual suspend
+
+
 # For allowing the board to shut off your ATX power supply
 # ---------------------------------------------------------------------
 # switch.psu.enable                            true           # turn atx on/off
 # switch.psu.input_on_command                  M80            #
 # switch.psu.input_off_command                 M81            #
 # switch.psu.output_pin                        2.13o!         # open drain, inverted
- 
- 
+
+
 # LCD Panel http://smoothieware.org/panel
 # ---------------------------------------------------------------------
 panel.enable                                 false            # set to true to enable the panel code
@@ -280,16 +307,16 @@ panel.encoder_a_pin                          3.25!^           # encoder pin
 panel.encoder_b_pin                          3.26!^           # encoder pin
 panel.i2c_pins                               3                # set i2c channel to use
 panel.a0_pin                                 2.6              # st7565 needs an a0
- 
+
 panel.menu_offset                            1                # some panels will need 1 here
- 
+
 panel.alpha_jog_feedrate                     6000             # x jogging feedrate in mm/min
 panel.beta_jog_feedrate                      6000             # y jogging feedrate in mm/min
 panel.gamma_jog_feedrate                     200              # z jogging feedrate in mm/min
- 
+
 panel.hotend_temperature                     220              # temp to set hotend when preheat is selected
 panel.bed_temperature                        60               # temp to set bed when preheat is selected
- 
+
 panel.red_led_pin                            2.8              # pin for red led on viki2 on EXP1
 panel.blue_led_pin                           4.29             # pin for blue led on viki2 on EXP1
 panel.buzz_pin                               0.25             # pin for buzzer on EXP2
@@ -299,7 +326,7 @@ panel.external_sd                            true             # set to true if t
 panel.external_sd.spi_channel                0                # set spi channel the sdcard is on
 panel.external_sd.spi_cs_pin                 1.23             # set spi chip select for the sdcard
 panel.external_sd.sdcd_pin                   1.31!^           # sd detect signal (set to nc if no sdcard detect)
- 
+
 #panel.spi_channel                           0                 # set spi channel to use P0_18,P0_15 MOSI,SCLK
 #panel.spi_cs_pin                            0.16              # set spi chip select
  
@@ -307,6 +334,12 @@ panel.external_sd.sdcd_pin                   1.31!^           # sd detect signal
 #panel.encoder_resolution                    4                 # override number of clicks to move 1 item (default is 4)
 #panel.button_pause_pin                      1.22^             # kill/pause set one of these for the auxilliary button on viki2
 #panel.back_button_pin                       1.22!^            # back button recommended to use this on EXP1
+
+# pins used with other panels
+#panel.up_button_pin                         0.1!              # up button if used
+#panel.down_button_pin                       0.0!              # down button if used
+#panel.click_button_pin                      0.18!             # click button if used
+
 
 # Example of a custom menu entry, which will show up in the Custom entry.
 # NOTE _ gets converted to space in the menu and commands, | is used to separate multiple commands
@@ -321,7 +354,6 @@ custom_menu.power_off.command              M81               #
  
 # Misc
 # ---------------------------------------------------------------------
-kill_button_enable                           true             #
 return_error_on_unhandled_gcode              false            #
 # kill button (used to be called pause) maybe assigned to a different pin, set to the onboard pin by default
 kill_button_enable                           true             # set to true to enable a kill button
@@ -337,11 +369,16 @@ second_usb_serial_enable                     false            # This enables a s
 
 # Network settings
 # ---------------------------------------------------------------------
-network.enable                               true             # enable the ethernet network services
-network.webserver.enable                     true             # enable the webserver
-network.telnet.enable                        false            # enable the telnet server
-network.plan9.enable                         false            # enable the plan9 network filesystem
-network.ip_address                           192.168.1.20     # use dhcp to get ip address 
+#network.enable                               true             # enable the ethernet network services
+#network.webserver.enable                     true             # enable the webserver
+#network.telnet.enable                        false            # enable the telnet server
+#network.plan9.enable                         false            # enable the plan9 network filesystem
+#network.ip_address                           auto             # use dhcp to get ip address (but then, how do you know it...?)
+# uncomment the 3 below to manually setup ip address
+#network.ip_address                           192.168.1.200    # the IP address
+#network.ip_mask                              255.255.255.0    # the ip mask
+#network.ip_gateway                           192.168.1.1      # the gateway address
+#network.mac_override                         xx.xx.xx.xx.xx.xx  # override the MAC address, only do this if you have a conflict
 
 
 # Laser module configuration
@@ -361,12 +398,5 @@ laser_module_enable                          false            # Whether to activ
 # ---------------------------------------------------------------------
 dfu_enable                                   true             # for linux developers, set to true to enable DFU
 msd_disable                                  false            # speeds up booting, but you can't mount the SD card over USB
-network.enable                               true             # enable the ethernet network services
-network.webserver.enable                     true             # enable the webserver
-network.telnet.enable                        false            # enable the telnet server
-#network.ip_address                           auto            # use dhcp to get ip address (but then, how do you know it...?)
-# uncomment the 3 below to manually setup ip address
-network.ip_address                           192.168.1.200    # the IP address
-network.ip_mask                              255.255.255.0    # the ip mask
-network.ip_gateway                           192.168.1.1      # the gateway address
-#network.mac_override                         xx.xx.xx.xx.xx.xx  # override the mac address, only do this if you have a conflict
+#watchdog_timeout                            10               # watchdog timeout in seconds, default is 10, set to 0 to disable the watchdog
+
