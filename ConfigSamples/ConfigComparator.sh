@@ -38,7 +38,7 @@ printHelp () {
 checkMismatches () {
 
 	# Extract only keywords (line must start with alpha char, so we ignore whitespace, comments, =, etc.)
-	KEYWORDS=`cat "$1" |awk {'print $1'} |uniq |grep '^[[:alpha:]].*'`
+	KEYWORDS=`cat "$1" |awk {'print $1'} |uniq |grep '^.[[:alpha:]].*'`
 
 	# See which keywords are in FILE1, but not FILE2.
 	mismatches=0
