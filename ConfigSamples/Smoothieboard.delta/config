@@ -42,9 +42,8 @@ comprehensive-delta.probe_ignore_bed_temp                 false            # Don
 
 # Optional Z probe, see http://smoothieware.org/zprobe
 # ---------------------------------------------------------------------
-zprobe.probe                                 endstop
-zprobe.probe_pin                             1.28             # optional pin for probe
 zprobe.enable                                true             # set to true to enable a zprobe
+zprobe.probe                                 endstop
 zprobe.probe_pin                             1.28^            # pin probe is attached to if NC remove the !, default 1.29!^
 zprobe.slow_feedrate                         2                # mm/sec probe feed rate
 zprobe.fast_feedrate                         60               # move feedrate
