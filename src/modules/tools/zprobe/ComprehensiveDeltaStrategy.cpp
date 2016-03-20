@@ -1,6 +1,8 @@
 /*
 
     Comprehensive Delta Strategy by 626Pilot
+    Thanks to PyjamaSam for helping me debug!
+
     This code requires a Z-probe. You can use your own, or get mine here: http://www.thingiverse.com/626Pilot/designs
 
     This strategy implements functionality found in the following separate strategies:
@@ -470,7 +472,6 @@ bool ComprehensiveDeltaStrategy::handleConfig() {
             surface_shape = PSS_CIRCLE;
             break;
     }
-    
 
     // Set default eval metric for simulated annealing
     eval_metric_type = EVAL_METRIC_MEAN;
