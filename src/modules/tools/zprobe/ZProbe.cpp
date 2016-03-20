@@ -443,13 +443,11 @@ void ZProbe::on_gcode_received(void *argument)
 
                     */
                     if(decelerate_on_trigger) {
-                        return_probe(steps_at_decel_end);
+                        return_probe(steps_at_decel_end, reverse);
                     } else {
-                        return_probe(steps);
+                        return_probe(steps, reverse);
                     }
 
-                    // return to pre probe position
-                    return_probe(steps, reverse);
                 }
 
             } else {
@@ -462,7 +460,7 @@ void ZProbe::on_gcode_received(void *argument)
             }
 
         } else {
-            if(!gcode->has_letter('P')) {
+//            if(!gcode->has_letter('P')) {
                 // find the first strategy to handle the gcode
                 for(auto s : strategies){
                     if(s->handleGcode(gcode)) {
@@ -471,7 +469,7 @@ void ZProbe::on_gcode_received(void *argument)
                 }
                 gcode->stream->printf("No strategy found to handle G%d\n", gcode->g);
 
-            }else{
+/*            }else{
                 // P paramater selects which strategy to send the code to
                 // they are loaded in the order they are defined in config, 0 being the first, 1 being the second and so on.
                 uint16_t i= gcode->get_value('P');
@@ -485,6 +483,7 @@ void ZProbe::on_gcode_received(void *argument)
                     gcode->stream->printf("strategy #%d is not loaded\n", i);
                 }
             }
+*/
         }
 
     } else if(gcode->has_g && gcode->g == 38 ) { // G38.2 Straight Probe with error, G38.3 straight probe without error
