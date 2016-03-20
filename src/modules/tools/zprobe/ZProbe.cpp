@@ -171,7 +171,6 @@ void ZProbe::setDecelerateOnTrigger(bool t) {
 bool ZProbe::wait_for_probe(int& steps)
 {
     unsigned int debounce = 0;
-    int _steps[3];
 
     while(true) {
         THEKERNEL->call_event(ON_IDLE);
@@ -199,9 +198,7 @@ bool ZProbe::wait_for_probe(int& steps)
             } else {
 
                 // ...otherwise stop the steppers, return its remaining steps
-                _steps[X_AXIS] = STEPPER[X_AXIS]->get_stepped();
-                _steps[Y_AXIS] = STEPPER[Y_AXIS]->get_stepped();
-                _steps[Z_AXIS] = STEPPER[Z_AXIS]->get_stepped();
+                steps = STEPPER[Z_AXIS]->get_stepped();
 
                 // If using deceleration, this tells the acceleration tick method to call decelerate() rather than accelerate()
                 if(decelerate_on_trigger) {
@@ -210,7 +207,7 @@ bool ZProbe::wait_for_probe(int& steps)
 
                 // Command steppers to stop (only if not using decel on trigger)
                 if(delta) {
-                    for(int i = X_AXIS; i <= Y_AXIS; i++) {
+                    for(int i = X_AXIS; i <= Z_AXIS; i++) {
                         if ( STEPPER[i]->is_moving() ) {
                             if(!decelerate_on_trigger) {
                                 STEPPER[i]->move(0, 0);
@@ -224,15 +221,6 @@ bool ZProbe::wait_for_probe(int& steps)
                             STEPPER[Z_AXIS]->move(0, 0);
                         }
                     }
-                }
-
-                // Set the steps
-                if(is_delta) {
-                    // Average, should reduce the standard deviation if the probe hits between axis motion interrupts
-                    steps = (_steps[X_AXIS] + _steps[Y_AXIS] + _steps[Z_AXIS]) / 3;
-                } else {
-                    // Only care about Z
-                    steps = _steps[Z_AXIS];
                 }
 
                 // Process the decel stuff
@@ -269,6 +257,7 @@ bool ZProbe::wait_for_probe(int& steps)
         }
     }
 }
+
 
 // single probe with custom feedrate
 // returns boolean value indicating if probe was triggered
